@@ -1,0 +1,28 @@
+{
+    "name": "jparkinson1991/composer-linker-plugin",
+    "description": "Enables linking/copying of package files to custom directories",
+    "version": "1.0.0",
+    "type": "composer-plugin",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Josh Parkinson",
+            "email": "joshparkinson1991@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": "^7.3",
+        "composer-plugin-api": "^1.1",
+        "symfony/filesystem": "^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "JParkinson1991\\ComposerLinkerPlugin\\": "src/"
+        }
+    },
+    "extra": {
+        "class": "JParkinson1991\\ComposerLinkerPlugin\\Plugin"
+    }
+}
