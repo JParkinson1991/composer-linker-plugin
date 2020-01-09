@@ -22,9 +22,14 @@ final class Config implements ConfigInterface
      * containing the following key value pairs:
      * - dir (string)
      *       the name of the mapped directory
-     * - files (string[])
+     * - files (array)
      *       the paths to specific files to map if not mapping the entire
-     *       package directory
+     *       package directory. Each element of this array if a sub array
+     *       with the following key values:
+     *           - source
+     *               The source file relative to the package root
+     *           - dest
+     *               The destination file relative to the mapped dir root
      * - options (array)
      *       an array of plugin options specific to this package
      *
@@ -114,8 +119,10 @@ final class Config implements ConfigInterface
             throw new ConfigLoadException('No links key found in config');
         }
 
+        // Instantiate the new object
         $configInstance = new self();
 
+        // Process all of the mapping links
         foreach ($configArray['links'] as $packageName => $packageConfig) {
             // If config is a string, this is a simple mapping of a package
             // name to a directory, store the value and move on.
@@ -149,19 +156,52 @@ final class Config implements ConfigInterface
                     $packageFiles = [];
 
                     // Loop the files removing any leading dots or directory separators
-                    foreach ($packageConfig['files'] as $filePath) {
-                        if (!is_string($filePath)) {
-                            throw new ConfigLoadException(
-                                $packageName.' contains an invalid file entry.'
-                                .' Expected strings only'
-                            );
+                    foreach ($packageConfig['files'] as $fileMapping) {
+                        // For string entries, source path == dest path
+                        // Simple map
+                        if (is_string($fileMapping)) {
+                            $filePath = ltrim($fileMapping, './\\');
+                            $packageFiles[] = [
+                                'source' => $filePath,
+                                'dest' => $filePath
+                            ];
+
+                            continue;
                         }
 
-                        $packageFiles[] = ltrim($filePath, './\\');
+                        // Array mapping, source and dest path both defined
+                        // Ensure both are strings or abort
+                        if (is_array($fileMapping) && sizeof($fileMapping) === 1){
+                            // Get the array key, this is the raw source path
+                            $key = array_keys($fileMapping)[0];
+
+                            // Ensure both the raw source path and dest path
+                            // are strings
+                            if (!is_string($key) || !is_string($fileMapping[$key])) {
+                                throw new ConfigLoadException(
+                                    $packageName.' contains an invalid file entry. this'
+                                );
+                            }
+
+                            $sourcePath = ltrim($key, './\\');
+                            $destPath = ltrim($fileMapping[$key], './\\');
+
+                            $packageFiles[] = [
+                                'source' => $sourcePath,
+                                'dest' => $destPath
+                            ];
+
+                            continue;
+                        }
+
+                        // Unhandled file mapping type
+                        throw new ConfigLoadException(
+                            $packageName.' contains an invalid file entry. that'
+                        );
                     }
 
                     if (!empty($packageFiles)) {
-                        $configInstance->config[$packageName]['files'] = array_unique($packageFiles);
+                        $configInstance->config[$packageName]['files'] = $packageFiles;
                     }
                 }
 

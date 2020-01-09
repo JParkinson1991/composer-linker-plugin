@@ -1,31 +1,17 @@
 # Composer Linker Plugin
 
-This plugin allows developers to define where they would like to install a 
-package, or if required where to install only some of the packages files.
+This plugin provides package alteration, with it the following can be achieved
 
-Using this plugin does not change the actual installation path of the package.
-Instead it links the package files to the requested locations via symlink by
-default (copying files where the operating system does not support symlinks). 
-Copying of files can be enabled by default using plugin options if required.
+- Set a per package custom installation folder (copy/symlink)
+- Map specific files from a package into a new folder (copy/symlink)
+   - Rename these files as required.
 
-### The Backstory
+Using this plugin does not alter the default installation paths of packages. It
+simply symlinks or copies the files to a configured location after it has been 
+installed or updated.
 
-This plugin was born from the need to use front end asset packages in a Drupal 
-project. More specifically using the [slick carousel module](https://www.drupal.org/project/slick) 
-on a Drupal site. 
-
-For the slick library to work with this module a developer
-must:
-- Change the library package directory name from it's default
-- Install the library package at a non standard location
-
-Also reading through the Drupal modules documentation, it required only two of
-the library files, in this scenario linking the entire package seemed overkill.
-
-Thus, the package was born, capable of
-- Renaming a composer package parent directory name
-- Defining a non standard installation path for a composer package
-- Defining only the needed files to link to this new install path.
+This plugin can be used for (and was born the need to) trim down front end asset
+packages before placing them into the public web root, as an example.
 
 ## Installing
 
@@ -100,7 +86,11 @@ The complex link options structure is as follows
     - The paths to the files within the package to link
     - Only these paths will be linked
     - Paths resolved from the package root
-    - If a file is not found it will be skipped
+    - Use an object to define source and destination
+        - Key => source
+        - Value => destination
+        - _IMPORTANT: One key value pair per object._
+    - If a source file is not found it will be skipped
 - `options` (optional)
     - Override the plugin options for this specific package
     - [Available options](#options)
@@ -115,7 +105,16 @@ The complex link options structure is as follows
                     "dir": "themes/theme-name",
                     "files": [
                         "./theme/style.css",
-                        "theme/scripts.min.js"
+                        "theme/scripts.min.js",
+                        {
+                            "theme/source/component.js": "dest/component.js"
+                        },
+                        {
+                            "theme/source/component.js": "same-source/multiple-destinations.js"
+                        },
+                        {
+                            "theme/source/component-2.js": "dest/another-component.js"
+                        }
                     ],
                     "options": {
                         "copy": true
