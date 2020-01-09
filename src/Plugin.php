@@ -155,9 +155,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             }
         }
         else{
-            foreach ($packageMappedFiles as $mappedFilePath) {
-                $sourcePath = $packageInstallPath.'/'.$mappedFilePath;
-                $destPath = $packageMappedDir.'/'.$mappedFilePath;
+            foreach ($packageMappedFiles as $mapping) {
+                $sourcePath = $packageInstallPath.'/'.$mapping['source'];
+                $destPath = $packageMappedDir.'/'.$mapping['dest'];
 
                 // Possible typo's for custom provided paths, ensure it exists
                 // prior to link
