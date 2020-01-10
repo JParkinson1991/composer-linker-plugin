@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * ConfigInterface.php
@@ -54,5 +55,4 @@ interface ConfigInterface
      * @return bool
      */
     public function packageUsesCopy(PackageInterface $package): bool;
-
 }
