@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Config.php
@@ -143,8 +144,8 @@ final class Config implements ConfigInterface
                 // contains a 'dir' key with a string a value
                 if (empty($packageConfig['dir']) || !is_string($packageConfig['dir'])) {
                     throw new ConfigLoadException(
-                        'Invalid configuration options for '.$packageName
-                        .' \'dir\' not set or is invalid'
+                        'Invalid configuration options for ' . $packageName
+                        . ' \'dir\' not set or is invalid'
                     );
                 }
 
@@ -171,7 +172,7 @@ final class Config implements ConfigInterface
 
                         // Array mapping, source and dest path both defined
                         // Ensure both are strings or abort
-                        if (is_array($fileMapping) && sizeof($fileMapping) === 1){
+                        if (is_array($fileMapping) && sizeof($fileMapping) === 1) {
                             // Get the array key, this is the raw source path
                             $key = array_keys($fileMapping)[0];
 
@@ -179,7 +180,7 @@ final class Config implements ConfigInterface
                             // are strings
                             if (!is_string($key) || !is_string($fileMapping[$key])) {
                                 throw new ConfigLoadException(
-                                    $packageName.' contains an invalid file entry. this'
+                                    $packageName . ' contains an invalid file entry. this'
                                 );
                             }
 
@@ -196,7 +197,7 @@ final class Config implements ConfigInterface
 
                         // Unhandled file mapping type
                         throw new ConfigLoadException(
-                            $packageName.' contains an invalid file entry. that'
+                            $packageName . ' contains an invalid file entry. that'
                         );
                     }
 
@@ -208,8 +209,7 @@ final class Config implements ConfigInterface
                 // Handle options
                 if (!empty($packageConfig['options']) && is_array($packageConfig['options'])) {
                     $configInstance->config[$packageName]['options'] = $packageConfig['options'];
-                }
-                else{
+                } else {
                     $configInstance->config[$packageName]['options'] = (!empty($configArray['options']))
                         ? $configArray['options']
                         : [];
@@ -220,12 +220,11 @@ final class Config implements ConfigInterface
 
             // Unhandled configuration type
             throw new ConfigLoadException(
-                'Invalid configuration options for '.$packageName
-                .' expected string directory mapping or config array.'
+                'Invalid configuration options for ' . $packageName
+                . ' expected string directory mapping or config array.'
             );
         }
 
         return $configInstance;
     }
-
 }
