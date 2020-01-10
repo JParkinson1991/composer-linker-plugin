@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * PackageUtil.php
@@ -31,7 +32,7 @@ final class PackageUtil
      */
     public static function getPackageFromEvent(PackageEvent $event)
     {
-        switch($operationClass = get_class($operation = $event->getOperation())){
+        switch ($operationClass = get_class($operation = $event->getOperation())) {
             case InstallOperation::class:
             case UninstallOperation::class:
                 /* @var InstallOperation $operation */
@@ -74,5 +75,4 @@ final class PackageUtil
 
         return $installerManager->getInstallPath($package);
     }
-
 }

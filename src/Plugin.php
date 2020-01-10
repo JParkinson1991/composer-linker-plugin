@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Plugin.php
@@ -78,10 +79,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (!empty($extra[self::EXTRA_KEY])) {
             try {
                 $this->config = Config::fromArray($extra[self::EXTRA_KEY]);
-            }
-            catch (ConfigLoadException $e) {
+            } catch (ConfigLoadException $e) {
                 throw new RuntimeException(
-                    'Composer Linker Plugin - '.$e->getMessage()
+                    'Composer Linker Plugin - ' . $e->getMessage()
                 );
             }
         }
@@ -123,9 +123,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         try {
             $package = PackageUtil::getPackageFromEvent($event);
             $packageInstallPath = PackageUtil::getPackageInstallPathFromEvent($event);
-        }
-        catch (UnhandledPackageOperationException $e){
-            $event->getIO()->writeError('Composer Linker Plugin - '.$e->getMessage());
+        } catch (UnhandledPackageOperationException $e) {
+            $event->getIO()->writeError('Composer Linker Plugin - ' . $e->getMessage());
             return;
         }
 
@@ -135,7 +134,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         // Pull mapping configuration for the package
-        $packageMappedDir = $this->rootDir.'/'.$this->config->getPackageLinkDir($package);
+        $packageMappedDir = $this->rootDir . '/' . $this->config->getPackageLinkDir($package);
         $packageMappedFiles = $this->config->getPackageLinkFiles($package);
         $copy = $this->config->packageUsesCopy($package);
 
@@ -149,23 +148,20 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (empty($packageMappedFiles)) {
             if ($copy) {
                 $this->fileSystem->copy($packageInstallPath, $packageMappedDir);
-            }
-            else {
+            } else {
                 $this->fileSystem->symlink($packageInstallPath, $packageMappedDir, true);
             }
-        }
-        else{
+        } else {
             foreach ($packageMappedFiles as $mapping) {
-                $sourcePath = $packageInstallPath.'/'.$mapping['source'];
-                $destPath = $packageMappedDir.'/'.$mapping['dest'];
+                $sourcePath = $packageInstallPath . '/' . $mapping['source'];
+                $destPath = $packageMappedDir . '/' . $mapping['dest'];
 
                 // Possible typo's for custom provided paths, ensure it exists
                 // prior to link
                 if ($this->fileSystem->exists($sourcePath)) {
-                    if($copy) {
+                    if ($copy) {
                         $this->fileSystem->copy($sourcePath, $destPath);
-                    }
-                    else{
+                    } else {
                         $this->fileSystem->symlink($sourcePath, $destPath, true);
                     }
                 }
@@ -196,9 +192,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Extract package metadata, end processing on error
         try {
             $package = PackageUtil::getPackageFromEvent($event);
-        }
-        catch (UnhandledPackageOperationException $e){
-            $event->getIO()->writeError('Composer Linker Plugin - '.$e->getMessage());
+        } catch (UnhandledPackageOperationException $e) {
+            $event->getIO()->writeError('Composer Linker Plugin - ' . $e->getMessage());
 
             return;
         }
@@ -210,8 +205,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         // Blindly remove the entire contents of the package link directory.
         $this->fileSystem->remove(
-            $this->rootDir.'/'.$this->config->getPackageLinkDir($package)
+            $this->rootDir . '/' . $this->config->getPackageLinkDir($package)
         );
     }
-
 }
