@@ -147,7 +147,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Else map each file one by one
         if (empty($packageMappedFiles)) {
             if ($copy) {
-                $this->fileSystem->copy($packageInstallPath, $packageMappedDir);
+                $this->fileSystem->mirror($packageInstallPath, $packageMappedDir);
             } else {
                 $this->fileSystem->symlink($packageInstallPath, $packageMappedDir, true);
             }
