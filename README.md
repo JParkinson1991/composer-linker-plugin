@@ -10,8 +10,10 @@ Using this plugin does not alter the default installation paths of packages. It
 simply symlinks or copies the files to a configured location after it has been 
 installed or updated.
 
-This plugin can be used for (and was born the need to) trim down front end asset
-packages before placing them into the public web root, as an example.
+This plugin can be used for (and was born from the need to) trim down front end 
+asset packages before placing them into the public web root, as an example. It 
+usage isn't limited to this scenario and this package can be stretched to fit
+any file manipulation requirements.
 
 ## Installing
 
@@ -83,14 +85,18 @@ The complex link options structure is as follows
     - The name of the custom install directory
     - This path is resolved from the composer.json file.
 - `files` (optional)
-    - The paths to the files within the package to link
-    - Only these paths will be linked
-    - Paths resolved from the package root
-    - Use an object to define source and destination
-        - Key => source
-        - Value => destination
-        - _IMPORTANT: One key value pair per object._
+    - Only these files will be linked
     - If a source file is not found it will be skipped
+    - Using strings to define file mappings
+        - Source and destination are assumed to be the same relative to both
+          package and mapped dir root
+    - Using objects to define file mappings
+        - Key => source (relative to package root)
+        - Value => destination (relative to mapped dir root)
+        - _Multiple mappings can be defined per object_
+        - _Multiple objects can be used to define mappings_
+     
+    - Strings are treat as having the same source and destination
 - `options` (optional)
     - Override the plugin options for this specific package
     - [Available options](#options)
@@ -107,14 +113,12 @@ The complex link options structure is as follows
                         "./theme/style.css",
                         "theme/scripts.min.js",
                         {
-                            "theme/source/component.js": "dest/component.js"
+                            "theme/source/component.js": "dest/component.js",
+                            "theme/source/component-2.js": "dest/another-component.js"
                         },
                         {
                             "theme/source/component.js": "same-source/multiple-destinations.js"
                         },
-                        {
-                            "theme/source/component-2.js": "dest/another-component.js"
-                        }
                     ],
                     "options": {
                         "copy": true
@@ -154,7 +158,7 @@ The default implied configuration object
 ## Versioning
 
 [SemVer](http://semver.org/) for versioning. For the versions available,
-see the [tags on this repository](https://github.com/JParkinson1991/common-frontend/tags).
+see the [tags on this repository](https://github.com/JParkinson1991/composer-linker-plugin/tags).
 
 ## License
 
