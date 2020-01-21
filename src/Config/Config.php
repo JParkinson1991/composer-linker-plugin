@@ -172,25 +172,20 @@ final class Config implements ConfigInterface
 
                         // Array mapping, source and dest path both defined
                         // Ensure both are strings or abort
-                        if (is_array($fileMapping) && sizeof($fileMapping) === 1) {
-                            // Get the array key, this is the raw source path
-                            $key = array_keys($fileMapping)[0];
+                        if (is_array($fileMapping)) {
+                            foreach ($fileMapping as $fileMappingSource => $fileMappingDest) {
+                                // Ensure both the raw source and dest path are strings
+                                if (!is_string($fileMappingSource) || !is_string($fileMappingDest)) {
+                                    throw new ConfigLoadException(
+                                        $packageName . ' contains an invalid file entry. this'
+                                    );
+                                }
 
-                            // Ensure both the raw source path and dest path
-                            // are strings
-                            if (!is_string($key) || !is_string($fileMapping[$key])) {
-                                throw new ConfigLoadException(
-                                    $packageName . ' contains an invalid file entry. this'
-                                );
+                                $packageFiles[] = [
+                                    'source' => ltrim($fileMappingSource, './\\'),
+                                    'dest' => ltrim($fileMappingDest, './\\')
+                                ];
                             }
-
-                            $sourcePath = ltrim($key, './\\');
-                            $destPath = ltrim($fileMapping[$key], './\\');
-
-                            $packageFiles[] = [
-                                'source' => $sourcePath,
-                                'dest' => $destPath
-                            ];
 
                             continue;
                         }
