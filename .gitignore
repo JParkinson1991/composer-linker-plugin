@@ -4,8 +4,8 @@
 # - Place project specific ignore statements in this section.
 # ==============================================================================
 
-composer.phar
-vendor
+/vendor/
+/var/
 
 # ==============================================================================
 # Dreamweaver Ignores
