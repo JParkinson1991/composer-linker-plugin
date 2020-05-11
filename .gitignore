@@ -4,8 +4,9 @@
 # - Place project specific ignore statements in this section.
 # ==============================================================================
 
-composer.phar
-vendor
+.phpunit.result.cache
+/vendor/
+/var/
 
 # ==============================================================================
 # Dreamweaver Ignores
