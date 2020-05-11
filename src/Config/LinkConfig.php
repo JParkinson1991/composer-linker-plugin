@@ -13,7 +13,7 @@ use Composer\Package\PackageInterface;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Config
  */
-class PackageLinkConfig implements PackageLinkConfigInterface
+class LinkConfig implements LinkConfigInterface
 {
     /**
      * The name of the package this config is associated with
@@ -23,33 +23,34 @@ class PackageLinkConfig implements PackageLinkConfigInterface
     protected $packageName;
 
     /**
-     * The destination directory for the package
+     * The destination directory of the associated package once linked
      *
      * @var string
      */
-    protected $destinationDirectory;
+    protected $destinationDir;
 
     /**
      * PackageLinkConfig constructor.
      *
      * @param string $packageName
-     * @param string $destinationDirectory
+     * @param string $destinationDir
      */
-    public function __construct(string $packageName, string $destinationDirectory)
+    public function __construct(string $packageName, string $destinationDir)
     {
         $this->packageName = $packageName;
-        $this->destinationDirectory = $destinationDirectory;
+        $this->destinationDir = $destinationDir;
     }
 
     /**
-     * Package support determinator
-     *
-     * @param \Composer\Package\PackageInterface $package
-     *     The package in question.
-     *     Does this config work with this package?
-     *
-     *
-     * @return bool
+     * @inheritDoc
+     */
+    public function getDestinationDir(): string
+    {
+        return $this->destinationDir;
+    }
+
+    /**
+     * @inheritDoc
      */
     public function supports(PackageInterface $package): bool
     {
@@ -63,5 +64,4 @@ class PackageLinkConfig implements PackageLinkConfigInterface
             true
         );
     }
-
 }

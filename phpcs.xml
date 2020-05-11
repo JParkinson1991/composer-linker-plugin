@@ -7,5 +7,9 @@
 
     <rule ref="PSR12">
         <exclude name="PSR12.Files.FileHeader.SpacingAfterBlock"/>
+        <exclude name="PSR12.Operators.OperatorSpacing.NoSpaceAfter"/>
+        <exclude name="PSR12.Operators.OperatorSpacing.NoSpaceBefore"/>
     </rule>
+
+    <rule ref="Squiz.Arrays.ArrayDeclaration.CommaAfterLast"/>
 </ruleset>
