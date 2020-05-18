@@ -69,16 +69,6 @@ class LinkDefinition implements LinkDefinitionInterface
     }
 
     /**
-     * Sets whether link definition should copy linked files
-     *
-     * @param bool $copyFiles
-     */
-    public function setCopyFiles(bool $copyFiles): void
-    {
-        $this->copyFiles = $copyFiles;
-    }
-
-    /**
      * Does the link definition use copy for linking files.
      *
      * @return bool
@@ -86,5 +76,15 @@ class LinkDefinition implements LinkDefinitionInterface
     public function getCopyFiles(): bool
     {
         return $this->copyFiles;
+    }
+
+    /**
+     * Sets whether link definition should copy linked files
+     *
+     * @param bool $copyFiles
+     */
+    public function setCopyFiles(bool $copyFiles): void
+    {
+        $this->copyFiles = $copyFiles;
     }
 }
