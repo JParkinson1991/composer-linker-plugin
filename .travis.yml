@@ -10,7 +10,7 @@ install:
 script:
     - mkdir -p ./var/build
     - ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
-    - ./vendor/bin/phpcs -i
+    - ./vendor/bin/phpcs -s
 
 after_script:
     -   |
