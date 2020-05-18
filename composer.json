@@ -15,8 +15,8 @@
     "require": {
         "php": "^7.3",
         "composer-plugin-api": "^1.1",
-        "symfony/filesystem": ">=3.0",
-        "psr/log": "^1.0"
+        "psr/log": "^1.1",
+        "symfony/filesystem": ">=3.0"
     },
     "require-dev": {
         "roave/security-advisories": "dev-master",
@@ -24,7 +24,8 @@
         "phpunit/phpunit": "^9.1",
         "composer/composer": "^1.10",
         "codedungeon/phpunit-result-printer": "^0.27.0",
-        "php-coveralls/php-coveralls": "^2.2"
+        "php-coveralls/php-coveralls": "^2.2",
+        "jparkinson1991/phpcodesniffer-standards": "^1.0"
     },
     "autoload": {
         "psr-4": {
@@ -40,9 +41,12 @@
         "sniff": "phpcs",
         "sniff:fix": "phpcbf",
         "test": "phpunit --colors=always --coverage-html var/coverage",
-        "coverage": "open ./var/coverage/index.html"
+        "view-coverage": "open ./var/coverage/index.html"
     },
     "extra": {
         "class": "JParkinson1991\\ComposerLinkerPlugin\\Composer\\Plugin\\ComposerLinkerPlugin"
+    },
+    "config": {
+        "sort-packages": true
     }
 }
