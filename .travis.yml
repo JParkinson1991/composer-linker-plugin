@@ -10,6 +10,13 @@ install:
 script:
     - mkdir -p ./var/build
     - ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
+    - ./vendor/bin/phpcs -i
 
-after_success:
-    - travis_retry ./vendor/bin/php-coveralls -x ./var/build/coverage.xml -o ./var/build/coveralls-upload.json -v
+after_script:
+    -   |
+        if [ -f "./var/build/coverage.xml" ]; then
+            travis_retry ./vendor/bin/php-coveralls -x ./var/build/coverage.xml -o ./var/build/coveralls-upload.json -v;
+            echo "Coverage submitted to Coveralls"
+        else
+            echo "./var/build/coverage.xml not found, coverage not submitted to Coveralls"
+        fi
