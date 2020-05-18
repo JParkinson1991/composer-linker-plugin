@@ -150,5 +150,4 @@ class LoggerAwareTraitTest extends TestCase
         $method->setAccessible(true);
         $method->invoke($this->loggerTrait, $message);
     }
-
 }

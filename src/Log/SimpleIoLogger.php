@@ -36,7 +36,7 @@ class SimpleIoLogger extends AbstractLogger
     /**
      * @inheritDoc
      */
-    public function log($level, $message, array $context = array())
+    public function log($level, $message, array $context = [])
     {
         $this->io->write($message);
     }
