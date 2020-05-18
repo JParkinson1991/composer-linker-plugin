@@ -14,7 +14,7 @@ script:
 
 after_script:
     -   |
-        # Coveralls Upload
+        echo "Coveralls Upload"
         if [ -f "./var/build/coverage.xml" ]; then
             travis_retry ./vendor/bin/php-coveralls -x ./var/build/coverage.xml -o ./var/build/coveralls-upload.json -v;
             echo "Coverage submitted to Coveralls"
