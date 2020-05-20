@@ -79,9 +79,19 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * todo: comment
+     * Attempts to link files for package after it has been installed or
+     * updated.
+     *
+     * This method extracts the package from the triggered event before
+     * attempting to create a link definition instance for it. If a link
+     * definition is created that instance is passed to the file handler
+     * to link the package's files.
      *
      * @param \Composer\Installer\PackageEvent $event
+     *     The package containing event triggered during package install or
+     *     update
+     *
+     * @return void
      */
     public function linkPackageFromEvent(PackageEvent $event): void
     {
@@ -106,9 +116,16 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * todo; comment
+     * Attempts to unlink the files for package after it has been uninstalled.
+     *
+     * This method extracts the package from the triggered uninstall event,
+     * attempts to create a link definition for it and passes that off to
+     * the link file handler for unlinking.
      *
      * @param \Composer\Installer\PackageEvent $event
+     *     The package containing uninstallation event
+     *
+     * @return void
      */
     public function unlinkPackageFromEvent(PackageEvent $event): void
     {
