@@ -7,6 +7,7 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Plugin;
 
 use Composer\Composer;
+use Composer\Config;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\InstallationManager;
 use Composer\Installer\PackageEvent;
@@ -14,9 +15,15 @@ use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
 use Composer\Package\Package;
 use Composer\Package\RootPackageInterface;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
-use JParkinson1991\ComposerLinkerPlugin\Files\LinkFileHandler;
+use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
+use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ReflectionMutatorTrait;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -27,39 +34,109 @@ use PHPUnit\Framework\TestCase;
 class ComposerLinkerPluginTest extends TestCase
 {
     /**
-     * Holds the IOInterface mock
-     *
-     * @var \PHPUnit\Framework\MockObject\MockObject|IOInterface
+     * Allow setting of protected/private object properties via mutation
      */
-    protected $io;
+    use ReflectionMutatorTrait;
 
     /**
-     * Holds the plugin instance
+     * A mocked link definition factory used within the plugin property of
+     * this class
      *
-     * @var ComposerLinkerPlugin
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $linkDefinitionFactory;
+
+    /**
+     * A mocked link file handler used within the plugin property of this
+     * class
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $linkFileHandler;
+
+    /**
+     * A mocked package extractor service that is used within the plugin
+     * property of this class
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $packageExtractor;
+
+    /**
+     * The activated plugin instance ready for test
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin
      */
     protected $plugin;
 
     /**
-     * Sets up this test class prior to each test case being executed
+     * Sets up this class prior to executing each test case within it
+     *
+     * Essentially creates an activated instance of the plugin with
+     * mockable services that can be used in the test cases
      */
     public function setUp(): void
     {
-        $this->io = $this->createMock(IOInterface::class);
-        $this->plugin = new ComposerLinkerPlugin();
+        // Create a mock composer config class returning a valid directory
+        $composerConfig = $this->createMock(Config::class);
+        $composerConfig
+            ->method('get')
+            ->with('vendor-dir')
+            ->willReturn(__DIR__);
+
+        // Create a mocked composer class for use in plugin activation
+        $composer = $this->createMock(Composer::class);
+        $composer
+            ->method('getPackage')
+            ->willReturn($this->createMock(RootPackageInterface::class));
+        $composer
+            ->method('getInstallationManager')
+            ->willReturn($this->createMock(InstallationManager::class));
+        $composer
+            ->method('getConfig')
+            ->willReturn($composerConfig);
+
+        // Create a mocked IO class to be used in plugin activation
+        $io = $this->createMock(IOInterface::class);
+
+        // Initialise and activate the plugin
+        $composerLinkerPlugin = new ComposerLinkerPlugin();
+        $composerLinkerPlugin->activate($composer, $io);
+
+        // Inject a mocked package extractor
+        $packageExtractor = $this->createMock(PackageExtractor::class);
+        $this->setPropertyValue($composerLinkerPlugin, 'packageExtractor', $packageExtractor);
+
+        // Inject a mocked link definition factory
+        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactory::class);
+        $this->setPropertyValue($composerLinkerPlugin, 'linkDefinitionFactory', $linkDefinitionFactory);
+
+        // Inject a mocked link file handler
+        $linkFileHandler = $this->createMock(LinkFileHandler::class);
+        $this->setPropertyValue($composerLinkerPlugin, 'linkFileHandler', $linkFileHandler);
+
+        // Set to properties for access via each test case
+        // Objects passed by reference
+        // Altering class properties will alter plugin services
+        $this->plugin = $composerLinkerPlugin;
+        $this->packageExtractor = $packageExtractor;
+        $this->linkDefinitionFactory = $linkDefinitionFactory;
+        $this->linkFileHandler = $linkFileHandler;
     }
 
     /**
      * Tests that the plugin is subscribed to the expected events
      */
-    public function testSubscribedToExpectedEvents()
+    public function testSubscribedToExpectedEvents(): void
     {
+        $plugin = new ComposerLinkerPlugin();
+
         $this->assertInstanceOf(
             EventSubscriberInterface::class,
-            $this->plugin
+            $plugin
         );
 
-        $subscribedEvents = $this->plugin::getSubscribedEvents();
+        $subscribedEvents = $plugin::getSubscribedEvents();
 
         $this->assertCount(3, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_INSTALL, $subscribedEvents);
@@ -68,455 +145,241 @@ class ComposerLinkerPluginTest extends TestCase
     }
 
     /**
-     * Tests that plugin aborts during activation if no config found in the
-     * 'extra' section
+     * Test that the plugin will silently exist if no config found for the
+     * package that trigger the post package install/update event.
+     *
+     * This is not an error, thus should not be treated as one
      */
-    public function testActivationIsAbortedIfConfigNotFound()
+    public function testPackageLinkingSilentlyExitsOnConfigNotFound(): void
     {
-        // Create composer mock with no 'extra' config
-        $composer = $this->createComposerMockWithConfig([], false);
-
-        $this->io->expects($this->once())
-            ->method('writeError');
-
-        $this->plugin->activate($composer, $this->io);
-
-        $this->assertSame(false, $this->plugin->isActivated());
-    }
-
-    /**
-     * Tests that plugin activation is aborted if a non array plugin config
-     * definition is found in the 'extra' section of the root package,
-     */
-    public function testActivationAbortedOnFindinfNoArrayPluginConfig()
-    {
-        // Create composer with non array extra config for plugin
-        $composer = $this->createComposerMockWithConfig('non-array');
-
-        $this->io->expects($this->once())
-            ->method('writeError');
-
-        $this->plugin->activate($composer, $this->io);
-
-        $this->assertSame(false, $this->plugin->isActivated());
-    }
-
-    /**
-     * Tests that package definitions within the plugin config defined in the
-     * 'extra' section of the composer.json file are processed as expected.
-     *
-     * Difficult to completely test due to lack of dependency injection in
-     * composer plugins
-     *
-     * @dataProvider dataProviderPackageConfigs()
-     *
-     * @param array $packageConfigs
-     *     The package configs as defined in 'extra'
-     * @param int $expectedWriteErrorCalls
-     *     The number of times these configs are expected to trigger errors
-     *     It is assumed any that dont have been created successfully.
-     */
-    public function testProcessingOfPackageConfigsDuringActivation(
-        array $packageConfigs,
-        int $expectedWriteErrorCalls,
-        bool $isPluginActivated
-    ) {
-        // Create composer with package configs
-        $composer = $this->createComposerMockWithConfig($packageConfigs);
-
-        $this->io->expects($this->exactly($expectedWriteErrorCalls))
-            ->method('writeError');
-
-        $this->plugin->activate($composer, $this->io);
-
-        $this->assertSame($isPluginActivated, $this->plugin->isActivated());
-    }
-
-    /**
-     * Tests that when the package events trigger a linking of a package
-     * that execution is aborted if the plugin is not active.
-     *
-     * By default this plugin should not be activated, activation only occurs
-     * after the activate method is called on it. If the linkPackageFromEvent
-     * method is called on the plugin whilst it is in an unactivated state
-     * no linking should be attempted for that package via internal
-     * plugin services.
-     */
-    public function testLinkingAbortsWhenPluginNotActivated()
-    {
-        // Create a mock file handler that can be observed
-        // Observe the link method is never called
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->expects($this->never())
-            ->method('link');
-
-        // Inject the file handler directly onto plugin's property
-        // No dependency injection in composer plugin so this is the only
-        // option
-        $this->setPluginProperty('fileHandler', $fileHandler);
-
-        // Assert the plugin is not activate by default
-        // $this->plugin is an instantiated plugin object, but it has not had
-        // the activate method called on it
-        $this->assertNotTrue($this->plugin->isActivated());
-
-        // Run the link method, the file handler service should not have
-        // linked called on it
-        $this->plugin->linkPackageFromEvent($this->createMock(PackageEvent::class));
-    }
-
-    /**
-     * Tests that when the plugin handles a package event for an unsupported
-     * package it does not attempt to link it.
-     *
-     * This plugin requires package specific configuration to be defined so
-     * that it can configure it's service to properly handle project packages
-     * during their lifecycle, ie. linking on install, removing on uninstall.
-     * Before attempting any file handling operations the plugin should
-     * determine whether the package extracted from a package event is
-     * supported, that is, has config defined for it, so needs actioning. If the
-     * package is not supported thus not to be actioned it is expected that no
-     * 'linking' is triggered against the file handler service.
-     */
-    public function testLinkingAbortsWhenPackageNotSupported()
-    {
-        // Create simple package so it can be used in other service mocks
+        // Create a test package, and a configured event that contains it
         $package = new Package('test/package', '1.0.0', '1');
 
-        // Mock the event, so it can be used in other service mocks
-        $event = $this->createMock(PackageEvent::class);
-
-        // Create a mock package extractor, that will return a known package
-        $packageExtractor = $this->createMock(PackageExtractor::class);
-        $packageExtractor
-            ->method('extractFromEvent')
-            ->with($event)
-            ->willReturn($package);
-
-        // Create a mock file handler that can be observed
-        // Ensure it returns that the test package is unsupported
-        // Observe the link method is never called
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->method('supportsPackage')
+        // Configure the definition factory to throw a config not found
+        // exception when encountering our test package
+        $this->linkDefinitionFactory->method('createForPackage')
             ->with($package)
-            ->willReturn(false);
-        $fileHandler
-            ->expects($this->never())
+            ->willThrowException(new ConfigNotFoundException());
+
+        // Configure the link file handler service,
+        // Link definition should throw a non breaking exception (ie it's caught)
+        // Given exception is caught, ensure we dont actually try and link anything
+        $this->linkFileHandler->expects($this->never())
             ->method('link');
 
-        // Inject mocks directly into plugin properties
-        // No dependency injection, only option
-        $this->setPluginProperty('fileHandler', $fileHandler);
-        $this->setPluginProperty('packageExtractor', $packageExtractor);
+        // Mock an io instance, asserting no logging/output methods called
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->never())->method($this->anything());
 
-        // Force activation on plugin
-        $this->setPluginProperty('isActivated', true);
+        // Create an event that uses the mocked io
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $event->method('getIo')->willReturn($io);
 
-        // Run the link method, testing the file handler doesnt attempt to link
-        // the unsupported package
+        // Trigger the link method
+        // This should cause a config not found error, by default the plugin
+        // property on this class has been configured with a root package
+        // that will return an empty extra array. The extra array is where
+        // this config should be found
         $this->plugin->linkPackageFromEvent($event);
     }
 
     /**
-     * Tests that on a package event containing a supporting package the link
-     * processes is executed completely.
-     *
-     * On an activated plugin, receiving a supported package extracted form
-     * a package event it is expected that the link handler within plugin
-     * will executed the link method on the internal file handler service.
+     * Tests that the plugin exits and outputs an error message if package
+     * extraction throws an exception
      */
-    public function testLinkingExecutesOnSupportingPackage()
+    public function testPackageLinkingExitsWithErrorOnExtractionException(): void
     {
-        // Create a simple package for use in other service mocks
-        $package = new Package('test/package', '1.0.0', '1');
-
-        // Mock the event, so it can be used in other service mocks
-        // Ensure io mock returned for any output triggered in link
+        // Create mock package event
+        // Dont use protected helper method here as it's not needed to
+        // return a package
         $event = $this->createMock(PackageEvent::class);
-        $event
-            ->method('getIo')
-            ->willReturn($this->createMock(IOInterface::class));
 
-        // Create a mock package extractor, that will return a known package
-        $packageExtractor = $this->createMock(PackageExtractor::class);
-        $packageExtractor
+        // Have the package extractor throw an exception when receving
+        // the test event
+        $this->packageExtractor
             ->method('extractFromEvent')
             ->with($event)
-            ->willReturn($package);
+            ->willThrowException(new PackageExtractionUnhandledEventOperationException());
 
-        // Mock the file handler ensuring it returns true for support of the
-        // simple package instantiated for this test. Add an observer that the
-        // link method on the file handler is called with the package exactly
-        // once. If the link method is called here we can assume the plugin
-        // executed the link process fully and as expected
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->method('supportsPackage')
-            ->with($package)
-            ->willReturn(true);
-        $fileHandler
-            ->expects($this->once())
-            ->method('link')
-            ->with($package);
+        // Mock an IO instance for observation, ensure it logs an error
+        // inject it into event
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->once())->method('writeError');
+        $event->method('getIO')->willReturn($io);
 
-        // Inject mock services directly into plugin
-        $this->setPluginProperty('fileHandler', $fileHandler);
-        $this->setPluginProperty('packageExtractor', $packageExtractor);
+        // Ensure no linking occurs
+        $this->linkFileHandler->expects($this->never())
+            ->method('link');
 
-        // Force activated state
-        $this->setPluginProperty('isActivated', true);
-
-        // Run the link method with the event, it shold trigger a call to
-        // the file handler to link the package files
         $this->plugin->linkPackageFromEvent($event);
     }
 
     /**
-     * Tests that the unlink process is not executed when the plugin is not
-     * activated.
-     *
-     * Much the same as the link test, the plugin by default is not activated
-     * ensure that no unlinking is handled/processed if the plugin has not
-     * been activated by triggering it's activate method.
+     * Tests that the plugin exists and outputs an error message if a package
+     * config is deemed to be invalid
      */
-    public function testUnlinkingAbortsWhenPluginNotActivated()
+    public function testPackageLinkingExitsWithOnInvalidConfigException(): void
     {
-        // Set up observer on file handler to ensure the unlink method is
-        // never called on it
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->expects($this->never())
-            ->method('unlink');
+        $package = new Package('test/package', '1.0.0', '1');
 
-        // Inject the file handler directly onto plugin's property
-        // No dependency injection in composer plugin so this is the only
-        // option
-        $this->setPluginProperty('fileHandler', $fileHandler);
+        $this->linkDefinitionFactory
+            ->method('createForPackage')
+            ->with($package)
+            ->willThrowException(new InvalidConfigException());
 
-        $this->plugin->unlinkPackageFromEvent($this->createMock(PackageEvent::class));
+        // Mock an IO instance for observation, ensure it logs an error
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->once())->method('writeError');
+
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $event->method('getIO')->willReturn($io);
+
+        // Ensure no linking occurs
+        $this->linkFileHandler->expects($this->never())
+            ->method('link');
+
+        $this->plugin->linkPackageFromEvent($event);
     }
 
     /**
-     * Tests that unlinking processes is not executed on receiving an
-     * unsupported package from a lifecycle event.
+     * Tests that given no errors the plugin will actually attempt to link
+     * a package's files.
      *
-     * During plugin activation, configuration is loaded containing details on
-     * how to handle link/unlink a package's files. If no configuration was
-     * found for the package extract from the lifecycle event no unlinking
-     * should be attempted by the plugin's file handler service.
+     * That is, when a package has associated config, it is extracted
+     * successfully from the package event then it should be passed to the
+     * file handler for linking.
      */
-    public function testUnlinkingAbortsOnSupportedPackage()
+    public function testItRunsPackageLinking(): void
     {
-        // Create a simple package that can be used in mocks of services
+        $this->linkFileHandler->expects($this->once())->method('link');
+
         $package = new Package('test/package', '1.0.0', '1');
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $this->plugin->linkPackageFromEvent($event);
+    }
 
-        // Create a mock event, used to trigger the unlink process and mock
-        // the package extractor returning the known simple package object
-        $event = $this->createMock(PackageEvent::class);
+    /**
+     * Tests that during package unlinking (ie, when triggered by the package
+     * uninstall event) that if no config is found for the given package then
+     * the plugin will silently exit, no error, no exception, no log
+     */
+    public function testUnlinkingSilentlyExitsOnConfigNotFound(): void
+    {
+        // Create the test package and event
+        $package = new Package('test/package', '1.0.0', '1');
+        $event = $this->createConfiguredEventReturningPackage($package);
 
-        // Create a mock of the package extractor service so that when it
-        // receives our mock event it returns the simple package we created
-        $packageExtractor = $this->createMock(PackageExtractor::class);
-        $packageExtractor
-            ->method('extractFromEvent')
-            ->with($event)
-            ->willReturn($package);
-
-        // Mock the file handler service ensuring it returns false on
-        // supporting of the simple package created at the start of this test
-        // case
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->method('supportsPackage')
+        // Have the link definition factory return not found exception
+        $this->linkDefinitionFactory->method('createForPackage')
             ->with($package)
-            ->willReturn(false);
+            ->willThrowException(new ConfigNotFoundException());
 
-        // Unsupported packages should not trigger any unlinking on the internal
-        // file handler service, create observer on that method expecting it
-        // to never be called
-        $fileHandler
-            ->expects($this->never())
+        // Mock an IO instance so logging/output can be monitored
+        // Inject into event
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->never())->method($this->anything());
+        $event->method('getIo')->willReturn($io);
+
+        // Unlink should not be called for non found configs
+        $this->linkFileHandler->expects($this->never())
             ->method('unlink');
-
-        // Inject the services into the plugin
-        // No dependency injection in composer plugins so reflection needed
-        $this->setPluginProperty('fileHandler', $fileHandler);
-        $this->setPluginProperty('packageExtractor', $packageExtractor);
-
-        // Ensure the plugin is activated, again, use reflection so activation
-        // method does not need to be called
-        $this->setPluginProperty('isActivated', true);
 
         $this->plugin->unlinkPackageFromEvent($event);
     }
 
     /**
-     * Tests that unlink handling is executed fully for supported packages.
-     *
-     * Once the plugin has been activated and it receives a package extracted
-     * from a package lifecycle event that it supports ie. has configuration
-     * for it should pass this package to the internal file handling service
-     * for unlinking.
+     * Tests that the plugin exits during unlinking if the package can not be
+     * extracted from the given event.
      */
-    public function testUnlinkingIsExecutedForSupportedPackages()
+    public function testUnlinkExitsWithErrorOnExtractionException(): void
     {
-        // Create the simple package for testing
-        $package = new Package('test/package', '1.0.0', '1');
-
-        // Mock the event that the plugin will handle
-        // Allow IO to be pulled from event for plugin outputs
+        // Create simple event mock
+        // Doesn't need to return package so mock directly rather than through
+        // helper.
         $event = $this->createMock(PackageEvent::class);
-        $event
-            ->method('getIO')
-            ->willReturn($this->createMock(IOInterface::class));
 
-        // Mock the package extractor, returning our package from the
-        // mocked event
-        $packageExtractor = $this->createMock(PackageExtractor::class);
-        $packageExtractor
+        // Have the package extractor throw exception for this event
+        $this->packageExtractor
             ->method('extractFromEvent')
             ->with($event)
-            ->willReturn($package);
+            ->willThrowException(new PackageExtractionUnhandledEventOperationException());
 
-        // Mock the file handler, ensuring it supports the package created for
-        // this test case
-        $fileHandler = $this->createMock(LinkFileHandler::class);
-        $fileHandler
-            ->method('supportsPackage')
-            ->with($package)
-            ->willReturn(true);
+        // Mock io instance for observation, inject into event
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->once())->method('writeError');
+        $event->method('getIO')->willReturn($io);
 
-        // Create observer on the file handler, expecting the unlink method to
-        // be called on it once, with the simple package created in this test
-        // case. If this method is called, it can be assumed that the plugin
-        // handling the unlinking of the package to completion.
-        $fileHandler
-            ->expects($this->once())
-            ->method('unlink')
-            ->with($package);
+        // Unlink should not be called on extraction error
+        $this->linkFileHandler->expects($this->never())
+            ->method('unlink');
 
-        // Inject the mocked services into the plugin
-        // No dependency injection available, use reflection
-        $this->setPluginProperty('fileHandler', $fileHandler);
-        $this->setPluginProperty('packageExtractor', $packageExtractor);
-
-        // Force the plugin into an activated state to avoid early drop outs
-        $this->setPluginProperty('isActivated', true);
-
-        // Trigger the unlink handler on the plugin with the mock event
         $this->plugin->unlinkPackageFromEvent($event);
     }
 
     /**
-     * Data provide for package configs
-     *
-     * Each record/data set holds the following 3 values
-     * - An array of package config's as expected to be defined in 'extra'
-     * - The number of times the writeError method should be executed
-     *   Ie. the number of package configs that are invalid
-     * - Whether the plugin was activated after processing these configs
+     * Tests that the plugin exists during unlinking if the package has
+     * invalid config assocaited with it
      */
-    public function dataProviderPackageConfigs()
+    public function testUnlinkExitsWithErrorOnInvalidConfig(): void
     {
-        return [
-            // No configs, so no errors but plugin not activated
-            [
-                [],
-                0,
-                false
-            ],
-            // One config, non string index cause error dont activate
-            [
-                [
-                    1 => 'destination/dir'
-                ],
-                1,
-                false
-            ],
-            // One config, valid index, incorrect data, 1 error, plugin not activated
-            [
-                [
-                    'package/name' => new \stdClass(),
-                ],
-                1,
-                false
-            ],
-            // Two configs, one correct, one error, plugin activates
-            [
-                [
-                    1 => 'destination/dir',
-                    'package/name' => 'destination/dir'
-                ],
-                1,
-                true
-            ],
-            // Two configs, both correct, no error, plugin activates
-            [
-                [
-                    'first/package' => 'first/dir',
-                    'second/package' => 'second/dir'
-                ],
-                0,
-                true
-            ]
-        ];
+        $package = new Package('test/package', '1.0.0', '1');
+
+        $this->linkDefinitionFactory
+            ->method('createForPackage')
+            ->with($package)
+            ->willThrowException(new InvalidConfigException());
+
+        // Mock an IO instance for observation, ensure it logs an error
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->once())->method('writeError');
+
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $event->method('getIO')->willReturn($io);
+
+        // Ensure no linking occurs
+        $this->linkFileHandler->expects($this->never())
+            ->method('unlink');
+
+        $this->plugin->unlinkPackageFromEvent($event);
     }
 
     /**
-     * Creates a mock composer object configured to return a root package
-     * containing the provided configuration array
-     *
-     * @param mixed $config
-     *     The configuration value/values
-     * @param bool $wrapped
-     *     Whether to wrap the passed configuration array in the expected plugin
-     *     config id.
+     * That package unlinking is attempted when a handled package with
+     * valid config is extracted from the uninstall event
      */
-    protected function createComposerMockWithConfig($config, $wrapped = true)
+    public function testItRunsPackageUnlinking()
     {
-        if ($wrapped) {
-            $config = [
-                ComposerLinkerPlugin::PLUGIN_CONFIG_KEY => $config
-            ];
-        }
+        $this->linkFileHandler->expects($this->once())->method('unlink');
 
-        $rootPackage = $this->createMock(RootPackageInterface::class);
-        $rootPackage->method('getExtra')
-            ->willReturn($config);
-
-        // Mock the composer object, retuning the configured root package
-        // Also ensure that the installation manager is returned as expected
-        // as it used via the plugin's activation method
-        $composer = $this->createMock(Composer::class);
-        $composer->method('getPackage')
-            ->willReturn($rootPackage);
-        $composer->method('getInstallationManager')
-            ->willReturn($this->createMock(InstallationManager::class));
-
-
-        return $composer;
+        $package = new Package('test/package', '1.0.0', '1');
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $this->plugin->unlinkPackageFromEvent($event);
     }
 
     /**
-     * Centralises setting of plugin properties via reflection
+     * Creates a package event from the passed package object and configures
+     * the package extractor property (thus service within the plugin) to
+     * return the known package from the event when it's encountered as a
+     * method parameter
      *
-     * @param string $propertyName
-     *     The name of the property to set
-     * @param mixed $value
-     *     The value to set against the plugin
-     * @param \JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin|null $instance
-     *     The plugin instance that is having it's property value set
-     *     If null, uses the $this->plugin property on this class
+     * @param Package $package
+     *     The package to configure within the event
+     *
+     * @return \Composer\Installer\PackageEvent|\PHPUnit\Framework\MockObject\MockObject
+     *     The mocked, plugin handled event
      */
-    protected function setPluginProperty(string $propertyName, $value, ComposerLinkerPlugin $instance = null)
+    protected function createConfiguredEventReturningPackage(Package $package): MockObject
     {
-        $property = new \ReflectionProperty(ComposerLinkerPlugin::class, $propertyName);
-        $property->setAccessible(true);
-        $property->setValue(
-            $instance ?? $this->plugin,
-            $value
-        );
+        // Mock an event class
+        $event = $this->createMock(PackageEvent::class);
+
+        // Configure the package extractor used inside the plugin to
+        // return the known package when receiving the created event
+        $this->packageExtractor
+            ->method('extractFromEvent')
+            ->with($event)
+            ->willReturn($package);
+
+        return $event;
     }
 }

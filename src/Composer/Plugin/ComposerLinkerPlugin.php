@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * ComposerLinkerPlugin.php
+ * ComposerLinkerPLugin.php
  */
 
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Plugin;
@@ -12,191 +12,138 @@ use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
-use Exception;
+use Composer\Util\Filesystem as ComposerFileSystem;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
-use JParkinson1991\ComposerLinkerPlugin\Config\LinkConfigLocator;
-use JParkinson1991\ComposerLinkerPlugin\Config\LinkConfigFactory;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
-use JParkinson1991\ComposerLinkerPlugin\Files\LinkFileHandler;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
 use JParkinson1991\ComposerLinkerPlugin\Log\SimpleIoLogger;
-use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
 
 /**
  * Class ComposerLinkerPlugin
  *
- * @package JParkinson1991\ComposerLinkerPlugin\Composer
+ * @package JParkinson1991\ComposerLinkerPlugin\Composer\Plugin
  */
 class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
 {
     /**
-     * The key in which this plugin expects to find its config under the
-     * 'extra' section of the composer.json file
+     * The local link definition factory
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory
      */
-    public const PLUGIN_CONFIG_KEY = 'composer-linker-plugin';
+    protected $linkDefinitionFactory;
 
     /**
-     * Indication on whether plugin was activated successfully.
+     * The local link file handler instance
      *
-     * @var bool
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler
      */
-    protected $isActivated = false;
-
-    /**
-     * The package link file handler instance
-     *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Files\LinkFileHandler
-     */
-    protected $fileHandler;
+    protected $linkFileHandler;
 
     /**
      * The local package extractor instance
      *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor
+     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractorInterface
      */
     protected $packageExtractor;
 
     /**
-     * Actives this plugin
-     *
-     * @param \Composer\Composer $composer
-     * @param \Composer\IO\IOInterface $io
+     * @inheritDoc
      */
-    public function activate(Composer $composer, IOInterface $io)
+    public function activate(Composer $composer, IOInterface $io): void
     {
-        // Initialise class properties
-        // Do this here rather than constructor as some services require
-        // composer dependents (ie installation manager) and this keeps all
-        // plugin pre configs, activation, set up etc together
-        $ioLogger = new SimpleIoLogger($io);
-        $this->fileHandler = new LinkFileHandler(
-            new Filesystem(),
+        $this->packageExtractor = new PackageExtractor();
+        $this->linkDefinitionFactory = new LinkDefinitionFactory($composer->getPackage());
+        $this->linkFileHandler = new LinkFileHandler(
+            new SymfonyFileSystem(),
+            new ComposerFileSystem(),
             $composer->getInstallationManager()
         );
-        $this->fileHandler->setLogger($ioLogger);
-        $this->packageExtractor = new PackageExtractor();
-
-
-        // Use the configuration locator to find the raw plugin config as
-        // defined in the root package, validate the plugin config structure
-        // at this point as this should stop process on fail whereas package
-        // configure errors can be skipped.
-        try {
-            $configLocator = new LinkConfigLocator();
-            $pluginConfig = $configLocator->locateInRootPackage(
-                $composer->getPackage(),
-                self::PLUGIN_CONFIG_KEY
-            );
-
-            if (!is_array($pluginConfig)) {
-                throw InvalidConfigException::pluginConfigNotAnArray();
-            }
-        } catch (ConfigNotFoundException | InvalidConfigException $e) {
-            $io->writeError([
-                'Composer Linker Plugin: Aborting',
-                '> '.$e->getMessage()
-            ]);
-
-            return;
-        }
-
-        $configFactory = new LinkConfigFactory();
-        foreach ($pluginConfig as $packageName => $packageConfig) {
-            try {
-                // Each config definition is expected to be key'd by the name of
-                // the package it is to be associated with, rather than do full
-                // validation on package name, ensure it is a string so it at least
-                // has a fighting change
-                if (!is_string($packageName)) {
-                    throw InvalidConfigException::packageNameNotString($packageName);
-                }
-
-                $this->fileHandler->addConfig($configFactory->create($packageName, $packageConfig));
-
-                // Set is activated here, config creation and adding to file
-                // handler will trigger exceptions if this statement reached
-                // the file handler has a config attached to it and this plugin
-                // is active.
-                $this->isActivated = true;
-            } catch (InvalidConfigException $e) {
-                $io->writeError([
-                    'Composer Link Plugin: Skipping package '.$packageName,
-                    '> '.$e->getMessage()
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Returns plugin activation status
-     *
-     * @return bool
-     */
-    public function isActivated(): bool
-    {
-        return $this->isActivated;
-    }
-
-    /**
-     * Handles linking of package's files as per plugin configuration during
-     * its lifecycle.
-     *
-     * This method is triggered on package install/update, once invoked it
-     * determines whether configuration was defined for the package in
-     * which the event was triggered for. If plugin config exists (ie, was
-     * loaded into the file handler on activation) then the link method of
-     * the file handler is triggered for the package.
-     *
-     * @param \Composer\Installer\PackageEvent $event
-     *
-     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
-     */
-    public function linkPackageFromEvent(PackageEvent $event): void
-    {
-        if ($this->isActivated() === false) {
-            return;
-        }
-
-        $package = $this->packageExtractor->extractFromEvent($event);
-        if ($this->fileHandler->supportsPackage($package) === false) {
-            return;
-        }
-
-        $event->getIO()->write('<info>Composer Linker Plugin: Linking '.$package->getName().'</info>');
-        $this->fileHandler->link($package);
-    }
-
-    /**
-     * TODO
-     *
-     * @param \Composer\Installer\PackageEvent $event
-     *
-     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
-     */
-    public function unlinkPackageFromEvent(PackageEvent $event): void
-    {
-        if ($this->isActivated() === false) {
-            return;
-        }
-
-        $package = $this->packageExtractor->extractFromEvent($event);
-        if ($this->fileHandler->supportsPackage($package) === false) {
-            return;
-        }
-
-        $event->getIO()->write('<info>Composer Linker Plugin: Unlinking '.$package->getName().'</info>');
-        $this->fileHandler->unlink($package);
+        $this->linkFileHandler->setLogger(new SimpleIoLogger($io));
+        $this->linkFileHandler->setRootPath(dirname($composer->getConfig()->get('vendor-dir')));
     }
 
     /**
      * @inheritDoc
      */
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             PackageEvents::POST_PACKAGE_INSTALL => 'linkPackageFromEvent',
             PackageEvents::POST_PACKAGE_UPDATE => 'linkPackageFromEvent',
             PackageEvents::POST_PACKAGE_UNINSTALL => 'unlinkPackageFromEvent'
         ];
+    }
+
+    /**
+     * Attempts to link files for package after it has been installed or
+     * updated.
+     *
+     * This method extracts the package from the triggered event before
+     * attempting to create a link definition instance for it. If a link
+     * definition is created that instance is passed to the file handler
+     * to link the package's files.
+     *
+     * @param \Composer\Installer\PackageEvent $event
+     *     The package containing event triggered during package install or
+     *     update
+     *
+     * @return void
+     */
+    public function linkPackageFromEvent(PackageEvent $event): void
+    {
+        try {
+            // Extract the package, create a link definition instance for it
+            $package = $this->packageExtractor->extractFromEvent($event);
+            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
+
+            // Do not catch link exceptions
+            // This allows composer to revert installation if linking failed
+            $this->linkFileHandler->link($linkDefinition);
+        }
+        catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
+            $event->getIO()->writeError([
+                'Composer Linker Plugin: Error',
+                '> '.$e->getMessage()
+            ]);
+        }
+        catch (ConfigNotFoundException $e) {
+            // Skip unhandled packages
+        }
+    }
+
+    /**
+     * Attempts to unlink the files for package after it has been uninstalled.
+     *
+     * This method extracts the package from the triggered uninstall event,
+     * attempts to create a link definition for it and passes that off to
+     * the link file handler for unlinking.
+     *
+     * @param \Composer\Installer\PackageEvent $event
+     *     The package containing uninstallation event
+     *
+     * @return void
+     */
+    public function unlinkPackageFromEvent(PackageEvent $event): void
+    {
+        try {
+            // Extract the package, create a link definition instance for it
+            $package = $this->packageExtractor->extractFromEvent($event);
+            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
+
+            $this->linkFileHandler->unlink($linkDefinition);
+        }
+        catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
+            $event->getIO()->writeError([
+                'Composer Linker Plugin: Error',
+                '> '.$e->getMessage()
+            ]);
+        }
+        catch (ConfigNotFoundException $e) {
+            // Skip unhandled packages
+        }
     }
 }

@@ -6,6 +6,8 @@
 
 namespace JParkinson1991\ComposerLinkerPlugin\Exception;
 
+use Composer\Package\PackageInterface;
+
 /**
  * Class ConfigNotFoundException
  *
@@ -14,15 +16,17 @@ namespace JParkinson1991\ComposerLinkerPlugin\Exception;
 class ConfigNotFoundException extends \Exception
 {
     /**
-     * Throws an instance of itself when configuration not found at an
-     * expected key
+     * Returns not found exception when package config could not be found
      *
-     * @param string $key
+     * @param \Composer\Package\PackageInterface $package
      *
      * @return \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
      */
-    public static function atKey(string $key): self
+    public static function forPackage(PackageInterface $package)
     {
-        return new self("Failed to find config at key: ".$key);
+        return new self(sprintf(
+            'No config found for package %s',
+            $package->getName()
+        ));
     }
 }

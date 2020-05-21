@@ -6,71 +6,55 @@
 
 namespace JParkinson1991\ComposerLinkerPlugin\Exception;
 
+use Exception;
+
 /**
  * Class InvalidConfigException
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Exception
  */
-class InvalidConfigException extends \Exception
+class InvalidConfigException extends Exception
 {
-    public const CODE_NOT_ARRAY = 1;
-    public const CODE_PACKAGE_NAME_NOT_STRING = 2;
-    public const CODE_UNEXPECTED_FORMAT = 3;
-
     /**
-     * Throws an instance of this exception when parsed plugin definition is
-     * not an array
+     * Returns an instance of this exception in the context of a missing
+     * data key where it expected
      *
-     * @return self
+     * @param string $key
+     *     The missing key
+     * @param string $at
+     *     Where it was missing from
+     *
+     * @return \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    public static function pluginConfigNotAnArray(): self
+    public static function missingKey(string $key, string $at): self
     {
-        return new self(
-            'Plugin configuration is not an array',
-            self::CODE_NOT_ARRAY
-        );
+        return new self(sprintf(
+            'Missing data with key: %s. At: %s',
+            $key,
+            $at
+        ));
     }
 
     /**
-     * Throws an instance of this exception when receiving a package name and
-     * it is not a string
+     * Returns an instance of this exception when config contains an unexpected
+     * type
      *
-     * @param mixed $got
-     *     The value of the key that was received
+     * @param string $at
+     *     Where the unexpected type was found
+     * @param string $expected
+     *     What was expected
+     * @param $gotValue
+     *     The found value
      *
-     * @return self
+     * @return \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    public static function packageNameNotString($got): self
+    public static function unexpectedType(string $at, string $expected, $gotValue): self
     {
-        return new self(
-            sprintf(
-                'Package name not a string. Got: %s [%s]',
-                $got,
-                gettype($got)
-            ),
-            self::CODE_PACKAGE_NAME_NOT_STRING
-        );
-    }
-
-    /**
-     * Throws an instance of this exception when unexpected config formats
-     * and encountered.
-     *
-     * @param string|int|null $atKey
-     *     The unexpected config format identifier
-     *
-     * @return self
-     */
-    public static function unexpectedConfigFormat($atKey = null): self
-    {
-        return new self(
-            sprintf(
-                'Unexpected config format%s. Expected string or array',
-                ($atKey !== null)
-                    ? " at '".$atKey."'"
-                    : ''
-            ),
-            self::CODE_UNEXPECTED_FORMAT
-        );
+        return new self(sprintf(
+            'Invalid config at %s. Expected: %s. Got: %s',
+            $at,
+            $expected,
+            gettype($gotValue)
+        ));
     }
 }
