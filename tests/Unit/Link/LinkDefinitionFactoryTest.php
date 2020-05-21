@@ -11,6 +11,7 @@ use Composer\Package\RootPackageInterface;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
+use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ArrayTestTrait;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -22,568 +23,1449 @@ use stdClass;
 class LinkDefinitionFactoryTest extends TestCase
 {
     /**
-     * Tests that an exception is thrown by the factory if it cannot find
-     * any matching plugin config for the given package
-     *
-     * @dataProvider dataProviderForItThrowsExceptionWhenConfigNotFound
-     *
-     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * Extend array assertations
      */
-    public function testItThrowsExceptionWhenConfigNotFound(array $config): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray($config);
-
-        $this->expectException(ConfigNotFoundException::class);
-
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
+    use ArrayTestTrait;
 
     /**
-     * Tests that it throws exception for invalid link config type
+     * Tests scenarios where the config from the composer.json 'extra'
+     * definition should throw config not found for a package with the
+     * given package name
      *
-     * @dataProvider dataProviderForItThrowsExceptionForInvalidLinkConfigType
+     * @dataProvider dataProviderConfigNotFoundExceptions
      *
      * @param array $config
-     *     The link config
+     *     The config to make available to the factory instance
      * @param string $packageName
-     *     The name of the package
+     *     The name of the package to try instantiate a link definition instance for
      *
-     */
-    public function testItThrowsExceptionForInvalidLinkConfigType($config): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => $config
-                ]
-            ]
-        ]);
-
-        $this->expectException(InvalidConfigException::class);
-
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
-
-    /**
-     * Tests that the factory can create a link definition instance for a
-     * package that has simple string configuration
-     */
-    public function testItCreatesInstanceFromSimpleStringConfig(): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => 'destination/dir'
-                ]
-            ]
-        ]);
-
-        $package = $this->instantiateMockPackage('test/package');
-        $instance = $factory->createForPackage($package);
-
-        $this->assertSame($package, $instance->getPackage());
-        $this->assertSame('destination/dir', $instance->getDestinationDir());
-    }
-
-    /**
-     * Tests that the factory will throw invalid config exceptions if the
-     * structure of the global options array is invalid (ie, not an array)
-     *
-     * @dataProvider dataProviderForItThrowsExceptionOnInvalidGlobalConfigOptions
-     */
-    public function testItThrowsExceptionOnInvalidGlobalConfigOptionsStructure($optionsConfig): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => 'destination/dir'
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => $optionsConfig
-            ]
-        ]);
-
-        $this->expectException(InvalidConfigException::class);
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
-
-    /**
-     * Tests that the factory will throw an invalid config exception if the
-     * copy option received is not a boolean
-     *
-     * @dataProvider dataProviderForItThrowsExceptionOnInvalidCopyConfigOptionValue
-     */
-    public function testItThrowsExceptionOnInvalidCopyConfigOptionValue($copyValue): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => 'destination/dir'
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => $copyValue
-                ]
-            ]
-        ]);
-
-        $this->expectException(InvalidConfigException::class);
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
-
-    /**
-     * Tests that global defined config options are applied to link definition
-     * instances created by the factory
+     * @return void
      *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    public function testThatGlobalConfigOptionsAreAppliedToSimpleLinkDefinitionInstances(): void
+    public function testForConfigNotFoundException(array $config, string $packageName = 'test/package'): void
     {
-        $testPackage = $this->instantiateMockPackage('test/package');
-        $anotherPackage = $this->instantiateMockPackage('another/package');
+        $factory = $this->createFactoryWithConfig($config);
 
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => 'destination/dir',
-                    'another/package' => 'another/dir'
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
-                ]
-            ]
-        ]);
+        $this->expectException(ConfigNotFoundException::class);
 
-        // Instantiate a test package definition check outputs
-        $testPackageLinkDefinition = $factory->createForPackage($testPackage);
-        $this->assertSame($testPackage, $testPackageLinkDefinition->getPackage());
-        $this->assertSame('destination/dir', $testPackageLinkDefinition->getDestinationDir());
-        $this->assertTrue($testPackageLinkDefinition->getCopyFiles());
-
-        // Instantiate the other test package definition check outputs
-        $anotherPackageLinkDefinition = $factory->createForPackage($anotherPackage);
-        $this->assertSame($anotherPackage, $anotherPackageLinkDefinition->getPackage());
-        $this->assertSame('another/dir', $anotherPackageLinkDefinition->getDestinationDir());
-        $this->assertTrue($anotherPackageLinkDefinition->getCopyFiles());
-
-        // Reinstantiate the factory changing copy option value, make sure
-        // previous assertations were not flukes
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => 'destination/dir',
-                    'another/package' => 'another/dir'
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false
-                ]
-            ]
-        ]);
-
-        // Recreate test package link definition check copy false
-        $testPackageLinkDefinition = $factory->createForPackage($testPackage);
-        $this->assertFalse($testPackageLinkDefinition->getCopyFiles());
-
-        // Do the same for another package
-        $anotherPackageLinkDefinition = $factory->createForPackage($anotherPackage);
-        $this->assertFalse($anotherPackageLinkDefinition->getCopyFiles());
+        $factory->createForPackage($this->createMockPackage($packageName));
     }
 
     /**
-     * Tests that when a complex package config is used in the plugin config
-     * ie, the extra data that it must contain the destination dir key. If
-     * that key is not present then the factory should throw an invalid config
-     * exception.
+     * Tests scenarios where the config from the composer.json 'extra'
+     * definition should throw an invalid config exception when instantiating
+     * a link definition for a package with the given name
+     *
+     * @dataProvider dataProviderForInvalidConfigExceptions
+     *
+     * @param array $config
+     *     The config to make available to the factory instance
+     * @param string $packageName
+     *     The name of the package to try instantiate a link definition instance for
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    public function testItThrowsInvalidConfigExceptionIfComplexConfigDoesntContainDestinationDir(): void
+    public function testForInvalidConfigException(array $config, string $packageName = 'test/package'): void
     {
-        $factory = $this->instantiateFactoryWithConfigArray([
+        $factory = $this->createFactoryWithConfig($config);
+
+        $this->expectException(InvalidConfigException::class);
+
+        $factory->createForPackage($this->createMockPackage($packageName));
+    }
+
+    /**
+     * Tests that the factory is able to instantiate a link definition object
+     * from a simple string package config
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromString(): void
+    {
+        $factory = $this->createFactoryWithConfig([
             LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                 LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [] // no dir
+                    'test/package' => 'dest/dir'
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('dest/dir', $instance->getDestinationDir());
+    }
+
+
+    /**
+     * Tests that the factory is able to instantiate a link definition object
+     * from a simple string package config
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromStringWithOptions(): void
+    {
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => 'dest/dir'
+                ],
+                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false,
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('dest/dir', $instance->getDestinationDir());
+        $this->assertFalse($instance->getCopyFiles());
+        $this->assertTrue($instance->getDeleteOrphanDirs());
+
+        // Create new values and swap options to ensure actually using values
+        // from config and not getting false positives from definition property
+        // defaults etc
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => 'dest/dir'
+                ],
+                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('dest/dir', $instance->getDestinationDir());
+        $this->assertTrue($instance->getCopyFiles());
+        $this->assertFalse($instance->getDeleteOrphanDirs());
+    }
+
+    /**
+     * Tests that the factory is able to instantiate a link definition from
+     * a simple (minimum required elements) array
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromArray(): void
+    {
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir'
+                    ]
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('/destination/dir', $instance->getDestinationDir());
+    }
+
+    /**
+     * Tests that the factory is able to instantiate a link definition from an
+     * array config and inherit any defined global options
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromArrayWithGlobalOptions(): void
+    {
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir'
+                    ]
+                ],
+                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('/destination/dir', $instance->getDestinationDir());
+        $this->assertTrue($instance->getCopyFiles());
+        $this->assertFalse($instance->getDeleteOrphanDirs());
+    }
+
+    /**
+     * Tests that the factory is able to instantiate a link definition from an
+     * array config that overrides global options at package level.
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromArrayWithOptionOverrides(): void
+    {
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir',
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false,
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                        ]
+                    ]
+                ],
+                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                ]
+            ]
+        ]);
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('/destination/dir', $instance->getDestinationDir());
+        $this->assertFalse($instance->getCopyFiles());
+        $this->assertTrue($instance->getDeleteOrphanDirs());
+    }
+
+    /**
+     * Tests that the factory is able to instantiate a link definition from an
+     * array config that defines specific file mappings.
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testItCreatesCorrectlyFromArrayWithFileMappings(): void
+    {
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir',
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                            'same-source-dest.txt',
+                            [
+                                'nested-array-source-dest-pair-source.txt' => 'nested-array-source-dest-pair-dest.txt',
+                                'nested-array-source-multiple-dest-source.txt' => [
+                                    'nested-array-source-multiple-dest-dest-1.txt',
+                                    'nested-array-source-multiple-dest-dest-2.txt',
+                                    'nested-array-source-multiple-dest-dest-3.txt'
+                                ]
+                            ],
+                            //phpcs:ignore
+                            'source-dest-pair-source.txt' => 'source-dest-pair-dest.txt',
+                            'source-multiple-dest-source.txt' => [
+                                'source-multiple-dest-dest-1.txt',
+                                'source-multiple-dest-dest-2.txt'
+                            ],
+                            // try use same source again with difference dest
+                            'same-source-dest.txt' => 'add-additional-with-specific-dest.txt'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+
+        // Expected file mappings output dir as formatted by the link definition
+        $expectedFileMappings = [
+            'same-source-dest.txt' => [
+                'same-source-dest.txt',
+                'add-additional-with-specific-dest.txt'
+            ],
+            'nested-array-source-dest-pair-source.txt' => [
+                'nested-array-source-dest-pair-dest.txt'
+            ],
+            'nested-array-source-multiple-dest-source.txt' => [
+                'nested-array-source-multiple-dest-dest-1.txt',
+                'nested-array-source-multiple-dest-dest-2.txt',
+                'nested-array-source-multiple-dest-dest-3.txt'
+            ],
+            'source-dest-pair-source.txt' => [
+                'source-dest-pair-dest.txt'
+            ],
+            'source-multiple-dest-source.txt' => [
+                'source-multiple-dest-dest-1.txt',
+                'source-multiple-dest-dest-2.txt'
+            ]
+        ];
+
+        $package = $this->createMockPackage('test/package');
+        $instance = $factory->createForPackage($package);
+
+        $this->assertSame($package, $instance->getPackage());
+        $this->assertSame('/destination/dir', $instance->getDestinationDir());
+        $this->assertArraySame($expectedFileMappings, $instance->getFileMappings());
+    }
+
+    /**
+     * Tests that any exceptions thrown during application of file mappings
+     * where not already an invalid config exception are intercepted and
+     * wrapped by the factory and thrown as an invalid config exception
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
+     */
+    public function testThatFileMappingExceptionsAreWrappedAsRequired(): void
+    {
+        // Use the same destination which should trigger an exception on the
+        // link definition, this exception should be caught and wrapped by the
+        // factory
+        $factory = $this->createFactoryWithConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'test/package' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir',
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                            'source.txt' => 'dest.txt',
+                            'source-1.txt' => 'dest.txt'
+                        ]
+                    ]
                 ]
             ]
         ]);
 
         $this->expectException(InvalidConfigException::class);
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
+        $factory->createForPackage($this->createMockPackage('test/package'));
     }
 
     /**
-     * Tests that an exception is thrown when a complex package config is used
-     * but the destination dir given is not the required type (string).
+     * Data provider return configuration arrays and optional package names
+     * that should, when parsed by the factory to get a link definition for
+     * a package with that name, throw a config not found exception
      *
-     * @dataProvider dataProviderForItThrowsInvalidConfigExceptionIfComplexConfigDestinationDirHasInvalidType
+     * @see testForConfigNotFoundException
+     *
+     * @return array
+     *     Array of parameter sets, where:
+     *         key => parameter set label
+     *         value => array containing
+     *                  config array as element 0
+     *                  optional package name as element 1
      */
-    public function testItThrowsInvalidConfigExceptionIfComplexConfigDestinationDirHasInvalidType($destinationDir): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => $destinationDir
-                    ]
-                ]
-            ]
-        ]);
-
-        $this->expectException(InvalidConfigException::class);
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
-
-    /**
-     * Tests that the factory can create a valid link definition instance
-     * from complex config
-     */
-    public function testItCreatesALinkDefinitionInstanceFromComplexConfig(): void
-    {
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir'
-                    ]
-                ]
-            ]
-        ]);
-
-        $package = $this->instantiateMockPackage('test/package');
-        $instance = $factory->createForPackage($package);
-
-        $this->assertSame($package, $instance->getPackage());
-        $this->assertSame('destination/dir', $instance->getDestinationDir());
-    }
-
-    /**
-     * Tests that global options are applied to complex link definitions
-     *
-     * @return void
-     */
-    public function testItUsesGlobalOptionsWhenInstantiatingFromComplexConfig(): void
-    {
-        $package = $this->instantiateMockPackage('test/package');
-
-        // Create the factory with given extra config
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir'
-                    ]
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
-                ]
-            ]
-        ]);
-
-        $instance = $factory->createForPackage($package);
-        $this->assertSame($package, $instance->getPackage());
-        $this->assertSame('destination/dir', $instance->getDestinationDir());
-        $this->assertTrue($instance->getCopyFiles());
-
-        // Recreate factory with global copy option set to false
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir'
-                    ]
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false
-                ]
-            ]
-        ]);
-
-        // Recreate instance, check copy now false
-        $instance = $factory->createForPackage($package);
-        $this->assertFalse($instance->getCopyFiles());
-    }
-
-    /**
-     * Test that if a complex configuration provides package level options
-     * that they are validate as expected and throw exceptions if they are
-     * invalid
-     *
-     * @return void
-     */
-    public function testThatInvalidOptionInComplexConfigTriggerExceptions(): void
-    {
-        // Create factory with complex config defining package level options
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'not a boolean'
-                        ]
-                    ]
-                ]
-            ]
-        ]);
-
-        $this->expectException(InvalidConfigException::class);
-        $factory->createForPackage($this->instantiateMockPackage('test/package'));
-    }
-
-    /**
-     * Tests that any options set at package level are actually applied to
-     * the instance created (assuming they are valid)
-     *
-     * @return void
-     */
-    public function testThatPackageLevelOptionsAreSetAgainstCreatedInstance(): void
-    {
-        $package = $this->instantiateMockPackage('test/package');
-
-        // Create factory with complex config defining package level options
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
-                        ]
-                    ]
-                ]
-            ]
-        ]);
-
-        $instance = $factory->createForPackage($package);
-        $this->assertSame($package, $instance->getPackage());
-        $this->assertSame('destination/dir', $instance->getDestinationDir());
-        $this->assertTrue($instance->getCopyFiles());
-
-        // Recreate the factory with new copy value
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false
-                        ]
-                    ]
-                ]
-            ]
-        ]);
-
-        // Recreate instance assert it does not use copy
-        $instance = $factory->createForPackage($package);
-        $this->assertFalse($instance->getCopyFiles());
-    }
-
-    /**
-     * Test that package level options take precedence over global options when
-     * instances are created by the factory.
-     *
-     * @return void
-     */
-    public function testThatGlobalOptionsAreOverriddenByPackageOptions(): void
-    {
-        $package = $this->instantiateMockPackage('test/package');
-
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
-                        ]
-                    ]
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false
-                ]
-            ]
-        ]);
-
-        $instance = $factory->createForPackage($package);
-        $this->assertTrue($instance->getCopyFiles());
-
-        // Recreate factory change config values around
-        $factory = $this->instantiateFactoryWithConfigArray([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'test/package' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'destination/dir',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false
-                        ]
-                    ]
-                ],
-                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
-                ]
-            ]
-        ]);
-
-        // Ensure new instance does not use copy
-        $instance = $factory->createForPackage($package);
-        $this->assertFalse($instance->getCopyFiles());
-    }
-
-    /**
-     * Provides data for the testItThrowsExceptionWhenConfigNotFound
-     *
-     * Each record, contains the array that will become the data returned form
-     * the 'getExtra' call used by the factory when reading data from the root
-     * package.
-     *
-     * Every parameter set from this method should trigger the config not
-     * found exception
-     *
-     * @see testItThrowsExceptionWhenConfigNotFound
-     *
-     * @return array[]
-     */
-    public function dataProviderForItThrowsExceptionWhenConfigNotFound()
+    public function dataProviderConfigNotFoundExceptions(): array
     {
         return [
-            'empty-config' => [
-                []
+            'no plugin element' => [
+                [] // empty config array
             ],
-            'invalid-config-no-links' => [
+            'plugin element, no link element' => [
                 [
-                    'linker-plugin' => []
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => []
                 ]
             ],
-            'valid-config-no-package-config' => [
+            'plugin element, link element, no package definition' => [
                 [
-                    'linker-plugin' => [
-                        'links' => []
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => []
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Data provider returning configuration arrays and optional package names
+     * that should, when parsed by the factory to instantiate a link definition
+     * for a package with that name, throw an invalid config exception
+     *
+     * @see testForInvalidConfigException
+     *
+     * @return array
+     *     Array of parameter sets, where:
+     *         key => parameter set label
+     *         value => array containing
+     *                  config array as element 0
+     *                  optional package name as element 1
+     */
+    public function dataProviderForInvalidConfigExceptions(): array
+    {
+        // phpcs:disable Generic.Files.LineLength.TooLong
+        // phpcs:disable Squiz.Arrays.ArrayDeclaration.MultiLineNotAllowed
+
+        return [
+            'Package Config: Defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => true
+                        ]
                     ]
                 ]
             ],
-            'valid-config-no-matching-package-config' => [
+            'Package Config: Defined as int' => [
                 [
-                    'linker-plugin' => [
-                        'links' => [
-                            'not-the-test/package' => [] // this name is different than the one used in test case
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => 2
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => 1.23
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => new stdClass()
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element not defined' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                'no-dir-key' => true
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => true
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 1
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 1.23
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => []
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Config: Dir element defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => new stdClass()
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options: Defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => true
+                    ]
+                ]
+            ],
+            'Global Options: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 1
+                    ]
+                ]
+            ],
+            'Global Options: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 1.23
+                    ]
+                ]
+            ],
+            'Global Options: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 'string'
+                    ]
+                ]
+            ],
+            'Global Options: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => new stdClass()
+                    ]
+                ]
+            ],
+            'Global Options - Copy Option: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 1
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Copy Option: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 1.23
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Copy Option: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'string'
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Copy Option: Defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => []
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Copy Option: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'object'
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Delete Orphans Option: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Delete Orphans Option: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1.23
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Delete Orphans Option: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => "string"
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Delete Orphans Option: Defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => []
+                        ]
+                    ]
+                ]
+            ],
+            'Global Options - Delete Orphans Option: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir'
+                            ]
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => new stdClass()
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides: Defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => true
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 1
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 1.23
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => 'options as string'
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => new stdClass()
+
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Copy Option: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Copy Option: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 1.23
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Copy Option: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'string'
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Copy Option: Defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => []
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Copy Option: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => new stdClass()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Delete Orphans Option: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Delete Orphans Option: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1.23
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Delete Orphans Option: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 'string'
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Delete Orphans Option: Defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => []
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package Option Overrides - Delete Orphans Option: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => new stdClass()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => true
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => 1
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => 1.23
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as string' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => 'string'
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as empty array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => []
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings: Defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => new stdClass()
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat source defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    true
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat source defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat source defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    1.23
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat source defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    new stdClass()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Destination, destination defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source.txt' => true
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Destination, destination defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source.txt' => 1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Destination, destination defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source.txt' => 1.23
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Destination, destination defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source.txt' => new stdClass()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations but none defined' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source.txt' => []
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-multiple-destinations.txt' => [
+                                        true
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-multiple-destinations.txt' => [
+                                        1
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-multiple-destinations.txt' => [
+                                        1.23
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-multiple-destinations.txt' => [
+                                        []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-multiple-destinations.txt' => [
+                                        new stdClass()
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Source => Multiple destinations, destination defined as nested source => destination' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'source-with-nested-source-dest.txt' => [
+                                        'nested-source.txt' => 'dest.txt'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array empty' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [] // empty nested flat array
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array no source file key' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'no key thus no sourcefile.txt'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array dest defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => true
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array dest defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => 1
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array dest defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => 1.23
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array dest defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => new stdClass()
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array dest defined as empty array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as bool' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            true
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as int' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            1
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as float' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            1.23
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as array' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            []
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as object' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            new stdClass()
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'Package File Mappings - Invalid Array: Flat nested array multiple destinations, destination defined as source => dest' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'test/package' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    [
+                                        'nested-flat-array-source.txt' => [
+                                            'another-nested-source.txt' => 'dest'
+                                        ]
+                                    ]
+                                ]
+                            ]
                         ]
                     ]
                 ]
             ]
         ];
+
+        // phpcs:enable Generic.Files.LineLength.TooLong
+        // phpcs:enable Squiz.Arrays.ArrayDeclaration.MultiLineNotAllowed
     }
 
     /**
-     * Data provider for the ItThrowsExceptionForInvalidLinkConfigType testcase
+     * Instantiates a factory that reads config from the passed array
      *
-     * Returns invalid configs that could be found at the package level in
-     * the plugin. Ie. under 'linker-plugin']['links']['package name
-     *
-     * Ensure all unexpected types throw exception
-     *
-     * @see testItThrowsExceptionForInvalidLinkConfigType
-     *
-     * @return array
-     */
-    public function dataProviderForItThrowsExceptionForInvalidLinkConfigType(): array
-    {
-        return [
-            [ true ],
-            [ false ],
-            [ 1 ],
-            [ 1.23 ],
-            [ new stdClass() ]
-        ];
-    }
-
-    /**
-     * Data provider for testItThrowsExceptionOnInvalidGlobalConfigOptions
-     *
-     * Each item returned represents an invalid global config definition, the
-     * associated test case wraps it as required, each returned parameter set
-     * should trigger an exception
-     *
-     * @see testItThrowsExceptionOnInvalidGlobalConfigOptions
-     *
-     * @return array
-     */
-    public function dataProviderForItThrowsExceptionOnInvalidGlobalConfigOptions(): array
-    {
-        return [
-            [ "string" ],
-            [ true ],
-            [ false ],
-            [ 1 ],
-            [ 1.23 ],
-            [ new stdClass() ]
-        ];
-    }
-
-    /**
-     * Data provider for testItThrowsExceptionOnInvalidCopyConfigOptionValue
-     *
-     * Each item returned represent an invalid value for the copy option, each
-     * value should trigger an exception
-     *
-     * @return array
-     */
-    public function dataProviderForItThrowsExceptionOnInvalidCopyConfigOptionValue(): array
-    {
-        return [
-            [ "string" ],
-            [ [] ],
-            [ 1 ],
-            [ 1.23 ],
-            [ new stdClass() ]
-        ];
-    }
-
-    /**
-     * Data provider for testItThrowsInvalidConfigExceptionIfComplexConfigDestinationDirHasInvalidType
-     *
-     * All returned parameter sets here represent invalid destination dir values
-     * alla should trigger exceptions
-     *
-     * @see testItThrowsInvalidConfigExceptionIfComplexConfigDestinationDirHasInvalidType
-     *
-     * @return array
-     */
-    public function dataProviderForItThrowsInvalidConfigExceptionIfComplexConfigDestinationDirHasInvalidType(): array
-    {
-        return [
-            [ true ],
-            [ false ],
-            [ [] ],
-            [ 1 ],
-            [ 1.23 ],
-            [ new stdClass() ]
-        ];
-    }
-
-    /**
-     * Returns a LinkDefinitionFactoryInstance that reads plugin config
-     * from the given array
-     *
-     * @param array $configArray
-     *     The config array
+     * @param array $config
+     *     The array of config available for the factory to read
      *
      * @return \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory
      */
-    protected function instantiateFactoryWithConfigArray(array $configArray): LinkDefinitionFactory
+    protected function createFactoryWithConfig(array $config): LinkDefinitionFactory
     {
         $rootPackage = $this->createMock(RootPackageInterface::class);
         $rootPackage->method('getExtra')
-            ->willReturn($configArray);
+            ->willReturn($config);
 
         return new LinkDefinitionFactory($rootPackage);
     }
 
     /**
-     * Returns a mock package with a given a name
+     * Returns a mock package with the given name
      *
      * @param string $name
-     *     The name of the package
      *
-     * @return \Composer\Package\PackageInterface|\PHPUnit\Framework\MockObject\MockObject
+     * @return \Composer\Package\Package
      */
-    protected function instantiateMockPackage(string $name): PackageInterface
+    protected function createMockPackage(string $name): PackageInterface
     {
         $package = $this->createMock(PackageInterface::class);
         $package->method('getName')

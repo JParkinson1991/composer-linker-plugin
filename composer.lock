@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "362db98dbcabec4dcb9ebb4eaa4fffca",
+    "content-hash": "37efa7b77bdd4c152b58010b373a833b",
     "packages": [
         {
             "name": "dealerdirect/phpcodesniffer-composer-installer",
@@ -99,7 +99,6 @@
                     "JParkinson1991\\PhpCodeSnifferStandards\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "GPL-3.0-or-later"
             ],
@@ -109,8 +108,7 @@
                     "email": "joshparkinson1991@gmail.com"
                 }
             ],
-            "description": "Custom PHP_Codesniffer standards",
-            "time": "2020-05-15T11:44:44+00:00"
+            "description": "Custom PHP_Codesniffer standards"
         },
         {
             "name": "psr/log",
@@ -4122,6 +4120,8 @@
         "php": "^7.3",
         "composer-plugin-api": "^1.1"
     },
-    "platform-dev": [],
+    "platform-dev": {
+        "ext-uopz": "*"
+    },
     "plugin-api-version": "1.1.0"
 }
