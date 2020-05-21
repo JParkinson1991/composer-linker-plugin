@@ -7,9 +7,9 @@ php:
 install:
     - pecl install uopz-6.1.0
     - composer install
+    - mkdir -p ./var/build
 
 script:
-    - mkdir -p ./var/build
     - ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
     - ./vendor/bin/phpcs -s
 
