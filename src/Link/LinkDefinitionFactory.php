@@ -100,7 +100,7 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
      * @param string $packageConfig
      *     The string package config, treat as a destination directory
      *
-     * @return array|\JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
+     * @return \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
      *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
@@ -124,11 +124,11 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
      * @param array $packageConfig
      *     The complex array config
      *
-     * @return array|\JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
+     * @return \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
      *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    protected function createWithArrayConfig(PackageInterface $package, array $packageConfig)
+    protected function createWithArrayConfig(PackageInterface $package, array $packageConfig): LinkDefinition
     {
         // Ensure destination directory set and valid
         if (!array_key_exists(self::CONFIG_KEY_LINKS_DIR, $packageConfig)) {
@@ -202,7 +202,7 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
      * @param array $configOptions
      *     The options in array format to override any global options with
      *
-     * @return array|\JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
+     * @return \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
      *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
@@ -353,7 +353,7 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
                         $linkDefinition->getPackage()->getName().' - '.self::CONFIG_KEY_LINKS_FILES.' - '.$source,
                         $e->getMessage()
                     ),
-                    $e->getCode(),
+                    (int)$e->getCode(),
                     $e
                 );
             }

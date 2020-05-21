@@ -10,6 +10,7 @@ install:
     - mkdir -p ./var/build
 
 script:
+    - ./vendor/bin/psalm
     - ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
     - ./vendor/bin/coverage-check ./var/build/coverage.xml ${CI_MIN_COVERAGE:-100}
     - ./vendor/bin/phpcs -s

@@ -43,7 +43,7 @@ class InvalidConfigException extends Exception
      *     Where the unexpected type was found
      * @param string $expected
      *     What was expected
-     * @param $gotValue
+     * @param mixed $gotValue
      *     The found value
      *
      * @return \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
