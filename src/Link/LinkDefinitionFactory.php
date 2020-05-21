@@ -124,11 +124,11 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
      * @param array $packageConfig
      *     The complex array config
      *
-     * @return array|\JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
+     * @return \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition
      *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException
      */
-    protected function createWithArrayConfig(PackageInterface $package, array $packageConfig)
+    protected function createWithArrayConfig(PackageInterface $package, array $packageConfig): LinkDefinition
     {
         // Ensure destination directory set and valid
         if (!array_key_exists(self::CONFIG_KEY_LINKS_DIR, $packageConfig)) {

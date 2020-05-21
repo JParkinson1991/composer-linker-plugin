@@ -25,6 +25,8 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
 /**
  * Class ComposerLinkerPlugin
  *
+ * @psalm-suppress MissingConstructor
+ *
  * @package JParkinson1991\ComposerLinkerPlugin\Composer\Plugin
  */
 class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
@@ -46,7 +48,7 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * The local package extractor instance
      *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractorInterface
+     * @var \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor
      */
     protected $packageExtractor;
 
