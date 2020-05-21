@@ -51,6 +51,9 @@
         "class": "JParkinson1991\\ComposerLinkerPlugin\\Composer\\Plugin\\ComposerLinkerPlugin"
     },
     "config": {
+        "platform": {
+            "php": "7.3"
+        },
         "sort-packages": true
     }
 }
