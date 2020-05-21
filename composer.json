@@ -40,7 +40,8 @@
         }
     },
     "scripts": {
-        "psalm": "psalm --show-info=true",
+        "psalm": "psalm",
+        "psalm:info": "psalm --show-info=true",
         "sniff": "phpcs",
         "sniff:fix": "phpcbf",
         "test": "phpunit --colors=always --coverage-html var/coverage",
