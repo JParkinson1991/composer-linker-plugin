@@ -50,7 +50,7 @@ class LinkFileHandler implements LoggerAwareInterface
     /**
      * The local symfony filesystem instance
      *
-     * @var \Symfony\Component\Filesystem\Filesystem;
+     * @var \Symfony\Component\Filesystem\Filesystem
      */
     protected $symfonyFileSystem;
 
