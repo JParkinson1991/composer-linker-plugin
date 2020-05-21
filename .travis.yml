@@ -7,6 +7,9 @@ php:
 install:
     - composer install
 
+before_script:
+    - pecl install uopz-6.1.0
+
 script:
     - mkdir -p ./var/build
     - ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
