@@ -5,10 +5,8 @@ php:
     - 7.4
 
 install:
-    - composer install
-
-before_script:
     - pecl install uopz-6.1.0
+    - composer install
 
 script:
     - mkdir -p ./var/build
