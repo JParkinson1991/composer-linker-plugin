@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a57336d480669bab2d64d0e2d0bb67dd",
+    "content-hash": "efc0c6522e2a58747017e392e19e55c5",
     "packages": [
         {
             "name": "dealerdirect/phpcodesniffer-composer-installer",
@@ -74,16 +74,16 @@
         },
         {
             "name": "jparkinson1991/phpcodesniffer-standards",
-            "version": "1.0.1",
+            "version": "1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/JParkinson1991/phpcodesniffer-standards.git",
-                "reference": "29dce80eb1fbd351bfca85fb5696d02a28f09fea"
+                "reference": "3504723565bac6dbae1bcf6e85d6cc64d046ff5b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/JParkinson1991/phpcodesniffer-standards/zipball/29dce80eb1fbd351bfca85fb5696d02a28f09fea",
-                "reference": "29dce80eb1fbd351bfca85fb5696d02a28f09fea",
+                "url": "https://api.github.com/repos/JParkinson1991/phpcodesniffer-standards/zipball/3504723565bac6dbae1bcf6e85d6cc64d046ff5b",
+                "reference": "3504723565bac6dbae1bcf6e85d6cc64d046ff5b",
                 "shasum": ""
             },
             "require": {
@@ -99,6 +99,7 @@
                     "JParkinson1991\\PhpCodeSnifferStandards\\": "src/"
                 }
             },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "GPL-3.0-or-later"
             ],
@@ -108,7 +109,8 @@
                     "email": "joshparkinson1991@gmail.com"
                 }
             ],
-            "description": "Custom PHP_Codesniffer standards"
+            "description": "Custom PHP_Codesniffer standards",
+            "time": "2020-05-20T08:49:54+00:00"
         },
         {
             "name": "squizlabs/php_codesniffer",
