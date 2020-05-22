@@ -15,10 +15,8 @@ use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackage;
-use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
-use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ReflectionMutatorTrait;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Filesystem\Filesystem;
@@ -37,11 +35,6 @@ use Symfony\Component\Filesystem\Filesystem;
  */
 class ComposerLinkPluginTest extends TestCase
 {
-    /**
-     * Use reflection mutation capabilities
-     */
-    use ReflectionMutatorTrait;
-
     /**
      * The name of the test package that can be used in test cases of this class
      */
@@ -161,8 +154,6 @@ class ComposerLinkPluginTest extends TestCase
      *
      * @dataProvider dataProviderLinking
      *
-     * @param bool $expectSymlink
-     *     Is it expected that files/dirs will be symlinked by the $pluginConfig
      * @param array $pluginConfig
      *     The plugin config to test
      * @param string[] $expectFileExists
@@ -171,11 +162,8 @@ class ComposerLinkPluginTest extends TestCase
      *     Expected files to not exists
      *
      * @return void
-     *
-     * @throws \ReflectionException
      */
     public function testItLinksAPackage(
-        bool $expectSymlink,
         array $pluginConfig,
         array $expectFileExists,
         array $expectFileNotExists
@@ -183,6 +171,19 @@ class ComposerLinkPluginTest extends TestCase
         // Configure and run the plugin using the provided config
         $this->configurePlugin($pluginConfig);
         $this->runPlugin('link');
+
+        // Determine whether symlink was used in the plugin configs
+        // phpcs:disable Generic.Files.LineLength.TooLong
+        if (isset($pluginConfig[LinkDefinitionFactory::CONFIG_KEY_ROOT][LinkDefinitionFactory::CONFIG_KEY_LINKS][self::TEST_PACKAGE_NAME][LinkDefinitionFactory::CONFIG_KEY_OPTIONS][LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY])) {
+            $usesSymlink = !($pluginConfig[LinkDefinitionFactory::CONFIG_KEY_ROOT][LinkDefinitionFactory::CONFIG_KEY_LINKS][self::TEST_PACKAGE_NAME][LinkDefinitionFactory::CONFIG_KEY_OPTIONS][LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY]);
+        }
+        elseif (isset($pluginConfig[LinkDefinitionFactory::CONFIG_KEY_ROOT][LinkDefinitionFactory::CONFIG_KEY_OPTIONS][LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY])) {
+            $usesSymlink = !($pluginConfig[LinkDefinitionFactory::CONFIG_KEY_ROOT][LinkDefinitionFactory::CONFIG_KEY_OPTIONS][LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY]);
+        }
+        else {
+            $usesSymlink = true;
+        }
+        // phpcs:enable Generic.Files.LineLength.TooLong
 
         // Determine if plugin config for directory or file linking
         // If directory link, check it exsist and $expectSymlink, dont check files
@@ -197,7 +198,7 @@ class ComposerLinkPluginTest extends TestCase
             // Assert linked dir exists
             // Assert is as $expectSymlink
             $this->assertFileExists($this->toAbsolutePath($destinationDir));
-            $this->assertSame($expectSymlink, is_link($this->toAbsolutePath($destinationDir)));
+            $this->assertSame($usesSymlink, is_link($this->toAbsolutePath($destinationDir)));
 
             // Dont check symlink status against files
             $checkFileLinks = false;
@@ -214,7 +215,7 @@ class ComposerLinkPluginTest extends TestCase
             $this->assertFileExists($this->toAbsolutePath($expectedFileStub));
 
             if ($checkFileLinks === true) {
-                $this->assertSame($expectSymlink, is_link($this->toAbsolutePath($expectedFileStub)));
+                $this->assertSame($usesSymlink, is_link($this->toAbsolutePath($expectedFileStub)));
             }
         }
 
@@ -225,24 +226,86 @@ class ComposerLinkPluginTest extends TestCase
     }
 
     /**
+     * Tests that the plugin is able to unlink a package as expected
+     *
+     * @dataProvider dataProviderUnlink
+     *
+     * @param array $pluginConfig
+     *     The plugin config to test
+     * @param string[] $extraFiles
+     *     Any extra files to create within the linked package file structure.
+     *     These files created outside of the knowledge of the plugin, useful
+     *     when testing orphan cleanup.
+     *     Provide stubs starting at plugin destination dir. Resolved to
+     *     absolute by test case.
+     * @param string[] $expectFileNotExists
+     *     Expected files to not exist after unlinking with the given config
+     *     Provide stubs starting at plugin destination dir. Resolved to
+     *     absolute by test case.
+     * @param string[] $expectFileExists
+     *     Expected files to still exist after unlinking with the given config.
+     *     Provide stubs starting at plugin destination dir. Resolved to
+     *     absolute by test case.
+     *
+     * @return void
+     */
+    public function testItUnlinksAPackage(
+        array $pluginConfig,
+        array $extraFiles,
+        array $expectFileNotExists,
+        array $expectFileExists
+    ): void {
+        // Configure and run the plugin creating the link file structure
+        $this->configurePlugin($pluginConfig);
+        $this->runPlugin('link');
+
+        // Add extra files into link dir as needed
+        // Useful when testing orphan cleanup
+        if (!empty($extraFiles)) {
+            $fileSystem = new Filesystem();
+
+            foreach ($extraFiles as $extraFileStub) {
+                $extraFilePath = $this->toAbsolutePath($extraFileStub);
+
+                if ($fileSystem->exists(dirname($extraFilePath)) === false) {
+                    $fileSystem->mkdir(dirname($extraFilePath));
+                }
+
+                $fileSystem->touch($extraFilePath);
+            }
+        }
+
+        // Unlink the plugin
+        $this->runPlugin('unlink');
+
+        // Check all of the expected non existent files do not exist
+        foreach ($expectFileNotExists as $expectFileNotExistStub) {
+            $this->assertFileDoesNotExist($this->toAbsolutePath($expectFileNotExistStub));
+        }
+
+        // Check all of the expected existing files still exists.
+        foreach ($expectFileExists as $expectedFileExistsStub) {
+            $this->assertFileExists($this->toAbsolutePath($expectedFileExistsStub));
+        }
+    }
+
+    /**
      * Provides data for the plugin linking test
      *
      * @return array[]
-     *     An array of paramter sets where each element in the set is:
-     *         - bool: expect symlinking?
+     *     An array of parameter sets where each element in the set is:
      *         - array: plugin configuration
      *         - array: expected files to exist
-     *                  Use stubs from plugin destination dir
+     *                  Use stubs starting at plugin destination dir
      *                  Absolute path resolved by test case
      *         - array: expected files to not exists
-     *                  Use stubs from plugin destination dir
+     *                  Use stubs starting at plugin destination dir
      *                  Absolute path resolved by test case
      */
     public function dataProviderLinking(): array
     {
         return [
             'linked dir - symlinked' => [
-                true,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -255,10 +318,11 @@ class ComposerLinkPluginTest extends TestCase
                     'linked-package/src/Class.php',
                     'linked-package/src/Services/Service.php'
                 ],
-                []
+                [
+                    // No files expected to not exist
+                ]
             ],
             'linked dir - copied - global option' => [
-                false,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -274,10 +338,11 @@ class ComposerLinkPluginTest extends TestCase
                     'linked-package/src/Class.php',
                     'linked-package/src/Services/Service.php'
                 ],
-                []
+                [
+                    // No files expected to not exist
+                ]
             ],
             'linked dir - symlink - package option override' => [
-                true,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -298,10 +363,11 @@ class ComposerLinkPluginTest extends TestCase
                     'linked-package/src/Class.php',
                     'linked-package/src/Services/Service.php'
                 ],
-                []
+                [
+                    // No files expected to not exist
+                ]
             ],
             'linked dir - copied - package option override' => [
-                false,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -322,10 +388,11 @@ class ComposerLinkPluginTest extends TestCase
                     'linked-package/src/Class.php',
                     'linked-package/src/Services/Service.php'
                 ],
-                []
+                [
+                    // No files expected to not exist
+                ]
             ],
             'linked files - symlink' => [
-                true,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -347,7 +414,6 @@ class ComposerLinkPluginTest extends TestCase
                 ]
             ],
             'linked files - copied' => [
-                false,
                 [
                     LinkDefinitionFactory::CONFIG_KEY_ROOT => [
                         LinkDefinitionFactory::CONFIG_KEY_LINKS => [
@@ -376,6 +442,175 @@ class ComposerLinkPluginTest extends TestCase
     }
 
     /**
+     * Provides data for the plugin unlinking test
+     *
+     * @return array[]
+     *     An array of parameter sets where each element in the set is:
+     *         - array: plugin configuration
+     *         - array: extra files to create in link file structure outside
+     *                  of plugin's knowledge. Useful when testing orphan
+     *                  cleanup.
+     *                  Use stubs starting at plugin destination dir
+     *                  Absolute path resolved by test case
+     *         - array: expected files to not exist after unlink
+     *                  Use stubs starting at plugin destination dir
+     *                  Absolute path resolved by test case
+     *         - array: expected files to still exist after unlink
+     *                  Use stubs starting at plugin destination dir
+     *                  Absolute path resolved by test case
+     */
+    public function dataProviderUnlink(): array
+    {
+        return [
+            'linked dir - no orphan cleanup' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            self::TEST_PACKAGE_NAME => 'linked-package'
+                        ]
+                    ]
+                ],
+                [
+                    // Dont create any extra files
+                ],
+                [
+                    'linked-package'
+                ],
+                [
+                    // Dont check existence of any files
+                ]
+            ],
+            'linked dir - oprhan cleanup' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            self::TEST_PACKAGE_NAME => 'linked-package'
+                        ],
+                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                        ]
+                    ]
+                ],
+                [
+                    // Dont create any extra files
+                ],
+                [
+                    'linked-package'
+                ],
+                [
+                    // Dont check existence of any files
+                ]
+            ],
+            'linked files' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            self::TEST_PACKAGE_NAME => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'src/Services/Service.php',
+                                    'src/Class.php'
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    // Dont create any extra files
+                ],
+                [
+                    'linked-package/src/Services/Service.php',
+                    'linked-package/src/Class.php'
+                ],
+                [
+                    'linked-package/src/Services',
+                    'linked-package/src',
+                    'linked-package'
+                ]
+            ],
+            'linked files - orphan cleanup' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            self::TEST_PACKAGE_NAME => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'src/Services/Service.php',
+                                    'src/Class.php'
+                                ],
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    // Dont create any extra files
+                ],
+                [
+                    // Check files dont exists
+                    'linked-package/src/Services/Service.php',
+                    'linked-package/src/Services',
+                    'linked-package/src/Class.php',
+                    'linked-package/src',
+                    'linked-package'
+                ],
+                [
+                    // No files to check existence of
+                ]
+            ],
+            'linked files - orphan cleanup with non empty dirs' => [
+                [
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            self::TEST_PACKAGE_NAME => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'src/Services/Service.php',
+                                    // phpcs:ignore
+                                    'src/Class.php' => [
+                                        'src/Class.php',
+                                        'branch-1/Class.php',
+                                        'branch-2/nested/dirs/Class.php'
+                                    ]
+                                ],
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    // Create extra files that should stop orphan clean up
+                    'linked-package/src/Services/test.txt',
+                    'linked-package/branch-2/nested/test.txt'
+                ],
+                [
+                    // Check files dont exists
+                    'linked-package/src/Services/Service.php',
+                    'linked-package/src/Class.php',
+                    'linked-package/branch-1/Class.php',
+                    'linked-package/branch-1',
+                    'linked-package/branch-2/nested/dirs/Class.php',
+                    'linked-package/branch-2/nested/dirs'
+                ],
+                [
+                    // These file should exist after unlink with orphan cleanup
+                    'linked-package/src/Services/test.txt',
+                    'linked-package/src/Services',
+                    'linked-package/src',
+                    'linked-package/branch-2/nested/test.txt',
+                    'linked-package/branch-2/nested',
+                    'linked-package/branch-2',
+                    'linked-package'
+                ]
+            ]
+        ];
+    }
+
+    /**
      * Configure the plugin via the 'extra' section of composer.json
      *
      * @param array $config
@@ -391,16 +626,15 @@ class ComposerLinkPluginTest extends TestCase
     }
 
     /**
-     * Runs the given method on the plugin
+     * Runs the given action on the plugin
      *
-     *
+     * This method handles mock creation/configuration of events that are
+     * passed to the plugin to run the relevant action.
      *
      * @param string $action
      *     Either link, or unlink
      *
      * @return void
-     *
-     * @throws \ReflectionException
      */
     protected function runPlugin(string $action): void
     {
