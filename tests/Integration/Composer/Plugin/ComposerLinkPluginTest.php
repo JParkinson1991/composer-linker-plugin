@@ -8,6 +8,8 @@ namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin;
 
 use Composer\Composer;
 use Composer\Config;
+use Composer\DependencyResolver\Operation\InstallOperation;
+use Composer\DependencyResolver\Operation\UninstallOperation;
 use Composer\Installer\InstallationManager;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
@@ -23,6 +25,13 @@ use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * Class ComposerLinkPluginTest
+
+ * Whilst this test class is intended to be a full end to end test of this
+ * plugin we must still mock what we do not have control over. Mocking
+ * covers the 'composer' environment.
+ *
+ * None of the functionality provided by this plugin is mocked during the test
+ * cases in this class.
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin
  */
@@ -165,7 +174,7 @@ class ComposerLinkPluginTest extends TestCase
      *
      * @throws \ReflectionException
      */
-    public function testItLinksADirectory(
+    public function testItLinksAPackage(
         bool $expectSymlink,
         array $pluginConfig,
         array $expectFileExists,
@@ -403,22 +412,23 @@ class ComposerLinkPluginTest extends TestCase
             $this->createMock(IOInterface::class)
         );
 
-        $event = $this->createMock(PackageEvent::class);
-
-        // Create a package extractor mock returning the test package with
-        // the test event
-        $packageExtractor = $this->createMock(PackageExtractor::class);
-        $packageExtractor
-            ->method('extractFromEvent')
-            ->with($event)
+        // Create the relevant composer operation for the action
+        // Have it return the test package
+        $operation = $this->createMock(
+            ($action === 'link')
+                ? InstallOperation::class
+                : UninstallOperation::class
+        );
+        $operation
+            ->method('getPackage')
             ->willReturn($this->package);
 
-        // Inject the package extractor mock
-        $this->setPropertyValue(
-            $composerLinkerPlugin,
-            'packageExtractor',
-            $packageExtractor
-        );
+        // Create the package event, have it return the package containing
+        // operation
+        $event = $this->createMock(PackageEvent::class);
+        $event
+            ->method('getOperation')
+            ->willReturn($operation);
 
         switch ($action) {
             case 'link':
