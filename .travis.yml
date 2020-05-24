@@ -6,6 +6,9 @@ php:
 
 install:
     - pecl install uopz-6.1.0
+    - mkdir -p ./var/config
+    - echo 'uopz.exit = "1"' > ./var/config/php-uopz.ini
+    - phpenv config-add ./var/config/php-uopz.ini
     - composer install
     - mkdir -p ./var/build
 
