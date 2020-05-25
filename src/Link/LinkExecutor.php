@@ -7,6 +7,8 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 use Composer\Package\PackageInterface;
+use Composer\Repository\RepositoryInterface;
+use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 
 /**
  * Class LinkExecutor
@@ -75,5 +77,31 @@ class LinkExecutor implements LinkExecutorInterface
     {
         $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
         $this->linkFileHandler->unlink($linkDefinition);
+    }
+
+    /**
+     * Unlinks all relevant packages within a given repository.
+     *
+     * Config not found will not be treat as an error by this method,
+     * invalid configs will still be treat as errors.
+     *
+     * @param \Composer\Repository\RepositoryInterface $repository
+     *     The repository containing packages to unlink
+     *
+     * @return void
+     *
+     * @throws \Exception
+     */
+    public function unlinkRepository(RepositoryInterface $repository): void
+    {
+        foreach ($repository->getPackages() as $package) {
+            try {
+                $this->unlinkPackage($package);
+            }
+            catch (ConfigNotFoundException $e) {
+                // config not found not an exception when processing all
+                // within a repository
+            }
+        }
     }
 }
