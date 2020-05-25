@@ -19,7 +19,7 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link
  */
-class LinkFileHandler implements LoggerAwareInterface
+class LinkFileHandler implements LinkFileHandlerInterface, LoggerAwareInterface
 {
     /**
      * Shared logger functionality

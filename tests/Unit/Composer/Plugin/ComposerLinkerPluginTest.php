@@ -20,8 +20,7 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
-use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
-use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ReflectionMutatorTrait;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -39,20 +38,12 @@ class ComposerLinkerPluginTest extends TestCase
     use ReflectionMutatorTrait;
 
     /**
-     * A mocked link definition factory used within the plugin property of
+     * A mocked link executor class used within the plugin property of
      * this class
      *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory|\PHPUnit\Framework\MockObject\MockObject
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor|\PHPUnit\Framework\MockObject\MockObject
      */
-    protected $linkDefinitionFactory;
-
-    /**
-     * A mocked link file handler used within the plugin property of this
-     * class
-     *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler|\PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $linkFileHandler;
+    protected $linkExecutor;
 
     /**
      * A mocked package extractor service that is used within the plugin
@@ -74,6 +65,8 @@ class ComposerLinkerPluginTest extends TestCase
      *
      * Essentially creates an activated instance of the plugin with
      * mockable services that can be used in the test cases
+     *
+     * @throws \ReflectionException
      */
     public function setUp(): void
     {
@@ -107,21 +100,15 @@ class ComposerLinkerPluginTest extends TestCase
         $packageExtractor = $this->createMock(PackageExtractor::class);
         $this->setPropertyValue($composerLinkerPlugin, 'packageExtractor', $packageExtractor);
 
-        // Inject a mocked link definition factory
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactory::class);
-        $this->setPropertyValue($composerLinkerPlugin, 'linkDefinitionFactory', $linkDefinitionFactory);
-
-        // Inject a mocked link file handler
-        $linkFileHandler = $this->createMock(LinkFileHandler::class);
-        $this->setPropertyValue($composerLinkerPlugin, 'linkFileHandler', $linkFileHandler);
+        $linkExecutor = $this->createMock(LinkExecutor::class);
+        $this->setPropertyValue($composerLinkerPlugin, 'linkExecutor', $linkExecutor);
 
         // Set to properties for access via each test case
         // Objects passed by reference
         // Altering class properties will alter plugin services
         $this->plugin = $composerLinkerPlugin;
         $this->packageExtractor = $packageExtractor;
-        $this->linkDefinitionFactory = $linkDefinitionFactory;
-        $this->linkFileHandler = $linkFileHandler;
+        $this->linkExecutor = $linkExecutor;
     }
 
     /**
@@ -142,45 +129,6 @@ class ComposerLinkerPluginTest extends TestCase
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_INSTALL, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UPDATE, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UNINSTALL, $subscribedEvents);
-    }
-
-    /**
-     * Test that the plugin will silently exist if no config found for the
-     * package that trigger the post package install/update event.
-     *
-     * This is not an error, thus should not be treated as one
-     */
-    public function testPackageLinkingSilentlyExitsOnConfigNotFound(): void
-    {
-        // Create a test package, and a configured event that contains it
-        $package = new Package('test/package', '1.0.0', '1');
-
-        // Configure the definition factory to throw a config not found
-        // exception when encountering our test package
-        $this->linkDefinitionFactory->method('createForPackage')
-            ->with($package)
-            ->willThrowException(new ConfigNotFoundException());
-
-        // Configure the link file handler service,
-        // Link definition should throw a non breaking exception (ie it's caught)
-        // Given exception is caught, ensure we dont actually try and link anything
-        $this->linkFileHandler->expects($this->never())
-            ->method('link');
-
-        // Mock an io instance, asserting no logging/output methods called
-        $io = $this->createMock(IOInterface::class);
-        $io->expects($this->never())->method($this->anything());
-
-        // Create an event that uses the mocked io
-        $event = $this->createConfiguredEventReturningPackage($package);
-        $event->method('getIo')->willReturn($io);
-
-        // Trigger the link method
-        // This should cause a config not found error, by default the plugin
-        // property on this class has been configured with a root package
-        // that will return an empty extra array. The extra array is where
-        // this config should be found
-        $this->plugin->linkPackageFromEvent($event);
     }
 
     /**
@@ -207,10 +155,45 @@ class ComposerLinkerPluginTest extends TestCase
         $io->expects($this->once())->method('writeError');
         $event->method('getIO')->willReturn($io);
 
-        // Ensure no linking occurs
-        $this->linkFileHandler->expects($this->never())
-            ->method('link');
+        // Unlink should not be called on extraction error
+        $this->linkExecutor
+            ->expects($this->never())
+            ->method('linkPackage');
 
+        $this->plugin->linkPackageFromEvent($event);
+    }
+
+    /**
+     * Test that the plugin will silently exist if no config found for the
+     * package that trigger the post package install/update event.
+     *
+     * This is not an error, thus should not be treated as one
+     */
+    public function testPackageLinkingSilentlyExitsOnConfigNotFound(): void
+    {
+        // Create a test package, and a configured event that contains it
+        $package = new Package('test/package', '1.0.0', '1');
+
+        // Configure the definition factory to throw a config not found
+        // exception when encountering our test package
+        $this->linkExecutor
+            ->method('linkPackage')
+            ->with($package)
+            ->willThrowException(new ConfigNotFoundException());
+
+        // Mock an io instance, asserting no logging/output methods called
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->never())->method($this->anything());
+
+        // Create an event that uses the mocked io
+        $event = $this->createConfiguredEventReturningPackage($package);
+        $event->method('getIo')->willReturn($io);
+
+        // Trigger the link method
+        // This should cause a config not found error, by default the plugin
+        // property on this class has been configured with a root package
+        // that will return an empty extra array. The extra array is where
+        // this config should be found
         $this->plugin->linkPackageFromEvent($event);
     }
 
@@ -222,8 +205,8 @@ class ComposerLinkerPluginTest extends TestCase
     {
         $package = new Package('test/package', '1.0.0', '1');
 
-        $this->linkDefinitionFactory
-            ->method('createForPackage')
+        $this->linkExecutor
+            ->method('linkPackage')
             ->with($package)
             ->willThrowException(new InvalidConfigException());
 
@@ -233,10 +216,6 @@ class ComposerLinkerPluginTest extends TestCase
 
         $event = $this->createConfiguredEventReturningPackage($package);
         $event->method('getIO')->willReturn($io);
-
-        // Ensure no linking occurs
-        $this->linkFileHandler->expects($this->never())
-            ->method('link');
 
         $this->plugin->linkPackageFromEvent($event);
     }
@@ -251,41 +230,17 @@ class ComposerLinkerPluginTest extends TestCase
      */
     public function testItRunsPackageLinking(): void
     {
-        $this->linkFileHandler->expects($this->once())->method('link');
-
         $package = new Package('test/package', '1.0.0', '1');
         $event = $this->createConfiguredEventReturningPackage($package);
+
+        $this->linkExecutor
+            ->expects($this->once())
+            ->method('linkPackage')
+            ->with($package);
+
         $this->plugin->linkPackageFromEvent($event);
     }
 
-    /**
-     * Tests that during package unlinking (ie, when triggered by the package
-     * uninstall event) that if no config is found for the given package then
-     * the plugin will silently exit, no error, no exception, no log
-     */
-    public function testUnlinkingSilentlyExitsOnConfigNotFound(): void
-    {
-        // Create the test package and event
-        $package = new Package('test/package', '1.0.0', '1');
-        $event = $this->createConfiguredEventReturningPackage($package);
-
-        // Have the link definition factory return not found exception
-        $this->linkDefinitionFactory->method('createForPackage')
-            ->with($package)
-            ->willThrowException(new ConfigNotFoundException());
-
-        // Mock an IO instance so logging/output can be monitored
-        // Inject into event
-        $io = $this->createMock(IOInterface::class);
-        $io->expects($this->never())->method($this->anything());
-        $event->method('getIo')->willReturn($io);
-
-        // Unlink should not be called for non found configs
-        $this->linkFileHandler->expects($this->never())
-            ->method('unlink');
-
-        $this->plugin->unlinkPackageFromEvent($event);
-    }
 
     /**
      * Tests that the plugin exits during unlinking if the package can not be
@@ -310,8 +265,35 @@ class ComposerLinkerPluginTest extends TestCase
         $event->method('getIO')->willReturn($io);
 
         // Unlink should not be called on extraction error
-        $this->linkFileHandler->expects($this->never())
-            ->method('unlink');
+        $this->linkExecutor
+            ->expects($this->never())
+            ->method('unlinkPackage');
+
+        $this->plugin->unlinkPackageFromEvent($event);
+    }
+
+    /**
+     * Tests that during package unlinking (ie, when triggered by the package
+     * uninstall event) that if no config is found for the given package then
+     * the plugin will silently exit, no error, no exception, no log
+     */
+    public function testUnlinkingSilentlyExitsOnConfigNotFound(): void
+    {
+        // Create the test package and event
+        $package = new Package('test/package', '1.0.0', '1');
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Have the link definition factory return not found exception
+        $this->linkExecutor
+            ->method('unlinkPackage')
+            ->with($package)
+            ->willThrowException(new ConfigNotFoundException());
+
+        // Mock an IO instance so logging/output can be monitored
+        // Inject into event
+        $io = $this->createMock(IOInterface::class);
+        $io->expects($this->never())->method($this->anything());
+        $event->method('getIo')->willReturn($io);
 
         $this->plugin->unlinkPackageFromEvent($event);
     }
@@ -324,8 +306,8 @@ class ComposerLinkerPluginTest extends TestCase
     {
         $package = new Package('test/package', '1.0.0', '1');
 
-        $this->linkDefinitionFactory
-            ->method('createForPackage')
+        $this->linkExecutor
+            ->method('unlinkPackage')
             ->with($package)
             ->willThrowException(new InvalidConfigException());
 
@@ -336,10 +318,6 @@ class ComposerLinkerPluginTest extends TestCase
         $event = $this->createConfiguredEventReturningPackage($package);
         $event->method('getIO')->willReturn($io);
 
-        // Ensure no linking occurs
-        $this->linkFileHandler->expects($this->never())
-            ->method('unlink');
-
         $this->plugin->unlinkPackageFromEvent($event);
     }
 
@@ -347,12 +325,16 @@ class ComposerLinkerPluginTest extends TestCase
      * That package unlinking is attempted when a handled package with
      * valid config is extracted from the uninstall event
      */
-    public function testItRunsPackageUnlinking()
+    public function testItRunsPackageUnlinking(): void
     {
-        $this->linkFileHandler->expects($this->once())->method('unlink');
-
         $package = new Package('test/package', '1.0.0', '1');
         $event = $this->createConfiguredEventReturningPackage($package);
+
+        $this->linkExecutor
+            ->expects($this->once())
+            ->method('unlinkPackage')
+            ->with($package);
+
         $this->plugin->unlinkPackageFromEvent($event);
     }
 

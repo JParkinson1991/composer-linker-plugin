@@ -18,6 +18,7 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
+use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
 use JParkinson1991\ComposerLinkerPlugin\Log\SimpleIoLogger;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
@@ -31,19 +32,13 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
  */
 class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
 {
-    /**
-     * The local link definition factory
-     *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory
-     */
-    protected $linkDefinitionFactory;
 
     /**
-     * The local link file handler instance
+     * The local link executor
      *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor
      */
-    protected $linkFileHandler;
+    protected $linkExecutor;
 
     /**
      * The local package extractor instance
@@ -58,14 +53,21 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
     public function activate(Composer $composer, IOInterface $io): void
     {
         $this->packageExtractor = new PackageExtractor();
-        $this->linkDefinitionFactory = new LinkDefinitionFactory($composer->getPackage());
-        $this->linkFileHandler = new LinkFileHandler(
+
+        $linkDefinitionFactory = new LinkDefinitionFactory($composer->getPackage());
+
+        $linkFileHandler = new LinkFileHandler(
             new SymfonyFileSystem(),
             new ComposerFileSystem(),
             $composer->getInstallationManager()
         );
-        $this->linkFileHandler->setLogger(new SimpleIoLogger($io));
-        $this->linkFileHandler->setRootPath(dirname($composer->getConfig()->get('vendor-dir')));
+        $linkFileHandler->setLogger(new SimpleIoLogger($io));
+        $linkFileHandler->setRootPath(dirname($composer->getConfig()->get('vendor-dir')));
+
+        $this->linkExecutor = new LinkExecutor(
+            $linkDefinitionFactory,
+            $linkFileHandler
+        );
     }
 
     /**
@@ -100,11 +102,7 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
         try {
             // Extract the package, create a link definition instance for it
             $package = $this->packageExtractor->extractFromEvent($event);
-            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
-
-            // Do not catch link exceptions
-            // This allows composer to revert installation if linking failed
-            $this->linkFileHandler->link($linkDefinition);
+            $this->linkExecutor->linkPackage($package);
         }
         catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
             $event->getIO()->writeError([
@@ -134,9 +132,7 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
         try {
             // Extract the package, create a link definition instance for it
             $package = $this->packageExtractor->extractFromEvent($event);
-            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
-
-            $this->linkFileHandler->unlink($linkDefinition);
+            $this->linkExecutor->unlinkPackage($package);
         }
         catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
             $event->getIO()->writeError([
