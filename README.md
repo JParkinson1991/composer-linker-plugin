@@ -267,7 +267,7 @@ The default implied options are as follows
             "links": {},
             "options": {
                 "copy": false
-                "delete-orphans": true
+                "delete-orphans": false
             }
         }
     }
