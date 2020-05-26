@@ -10,6 +10,8 @@ use Composer\Package\PackageInterface;
 use Composer\Repository\RepositoryInterface;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactoryInterface;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
@@ -64,6 +66,8 @@ class LinkExecutorTest extends TestCase
      * Tests that in optimal circumstance, the executor links a package
      *
      * @return void
+     *
+     * @throws \Exception
      */
     public function testItExecutesPackageLink(): void
     {
@@ -89,6 +93,8 @@ class LinkExecutorTest extends TestCase
      * Tests the executor does not attempt to link anything on config not found
      *
      * @return void
+     *
+     * @throws \Exception
      */
     public function testItDoesNotTryLinkAPackageOnConfigNotFound(): void
     {
@@ -99,7 +105,6 @@ class LinkExecutorTest extends TestCase
             ->with($package)
             ->willThrowException(new ConfigNotFoundException());
 
-
         $this->linkFileHandler
             ->expects($this->never())
             ->method('link');
@@ -107,7 +112,7 @@ class LinkExecutorTest extends TestCase
         try {
             $this->linkExecutor->linkPackage($package);
         }
-        catch (ConfigNotFoundException $e) {
+        catch (LinkExecutorException $e) {
             $this->addToAssertionCount(1);
         }
     }
@@ -117,8 +122,10 @@ class LinkExecutorTest extends TestCase
      * exception
      *
      * @return void
+     *
+     * @throws \Exception
      */
-    public function testItDoesNotTryLinkAPackageOnInvalidConfig()
+    public function testItDoesNotTryLinkAPackageOnInvalidConfig(): void
     {
         $package = $this->createMock(PackageInterface::class);
 
@@ -134,7 +141,7 @@ class LinkExecutorTest extends TestCase
         try {
             $this->linkExecutor->linkPackage($package);
         }
-        catch (InvalidConfigException $e) {
+        catch (LinkExecutorException $e) {
             $this->addToAssertionCount(1);
         }
     }
@@ -143,8 +150,10 @@ class LinkExecutorTest extends TestCase
      * Tests under optimal circumstance the executor will unlink a package
      *
      * @return void
+     *
+     * @throws \Exception
      */
-    public function testItUnlinksAPackage()
+    public function testItUnlinksAPackage(): void
     {
         $package = $this->createMock(PackageInterface::class);
 
@@ -168,6 +177,8 @@ class LinkExecutorTest extends TestCase
      * Tests the executor does not attempt to link anything on config not found
      *
      * @return void
+     *
+     * @throws \Exception
      */
     public function testItDoesNotTryUnLinkAPackageOnConfigNotFound(): void
     {
@@ -185,7 +196,7 @@ class LinkExecutorTest extends TestCase
         try {
             $this->linkExecutor->unlinkPackage($package);
         }
-        catch (ConfigNotFoundException $e) {
+        catch (LinkExecutorException $e) {
             $this->addToAssertionCount(1);
         }
     }
@@ -195,8 +206,10 @@ class LinkExecutorTest extends TestCase
      * exception
      *
      * @return void
+     *
+     * @throws \Exception
      */
-    public function testItDoesNotTryUnLinkAPackageOnInvalidConfig()
+    public function testItDoesNotTryUnLinkAPackageOnInvalidConfig(): void
     {
         $package = $this->createMock(PackageInterface::class);
 
@@ -212,7 +225,7 @@ class LinkExecutorTest extends TestCase
         try {
             $this->linkExecutor->linkPackage($package);
         }
-        catch (InvalidConfigException $e) {
+        catch (LinkExecutorException $e) {
             $this->addToAssertionCount(1);
         }
     }
@@ -222,8 +235,10 @@ class LinkExecutorTest extends TestCase
      * a given repository
      *
      * @return void
+     *
+     * @throws \Exception
      */
-    public function testItUnlinksARepository()
+    public function testItUnlinksARepository(): void
     {
         $package1 = $this->createMock(PackageInterface::class);
         $package2 = $this->createMock(PackageInterface::class);
@@ -253,8 +268,10 @@ class LinkExecutorTest extends TestCase
      * all relevant packages and unlink them as required.
      *
      * @return void
+     *
+     * @throws \Exception
      */
-    public function testUnlinkRepositoryIgnoresConfigNotFoundExceptions()
+    public function testUnlinkRepositoryIgnoresConfigNotFoundExceptions(): void
     {
         $package1 = $this->createMock(PackageInterface::class);
         $package2 = $this->createMock(PackageInterface::class);
@@ -272,9 +289,9 @@ class LinkExecutorTest extends TestCase
         $this->linkDefinitionFactory
             ->expects($this->exactly(2))
             ->method('createForPackage')
-            ->willReturnCallback(function ($package) use ($package1, $linkDefinition) {
+            ->willReturnCallback(static function ($package) use ($package1, $linkDefinition) {
                 if ($package === $package1) {
-                    throw new ConfigNotFoundException();
+                    throw new ConfigNotFoundException('no config found');
                 }
 
                 return $linkDefinition;
@@ -283,19 +300,96 @@ class LinkExecutorTest extends TestCase
         // Despite the config not found exception, ensure $package2 still
         // unlinked
         $this->linkFileHandler
-            ->expects($this->exactly(1))
+            ->expects($this->once())
             ->method('unlink');
 
         try {
             $this->linkExecutor->unlinkRepository($repository);
         }
-        catch (ConfigNotFoundException $e) {
-            // Add a test failure if config not found exception was not
-            // caught by the executor
+        catch (LinkExecutorExceptionCollection $e) {
+            // Add a test failure if an exception thrown
+            // Config not found exceptions should not bubble out of the
+            // executor
             $this->assertFalse(
                 true,
-                'Config not found exception thrown when unlinking a repository'
+                'Config not found exception bubbled outside of the executor'
             );
+        }
+    }
+
+    /**
+     * Tests that when unlinking all relevant packages in a repository if
+     * exceptions are thrown (other than the ignored config not found) they
+     * are caught and added to a collection that is then thrown after
+     * processing all packages in that repository.
+     *
+     * Essentially, dont let one bad apple spoil the bunch.
+     *
+     * @return void
+     */
+    public function testUnlinkingRepositoryCatchesProcessExceptionsAndThrowsViaCollection(): void
+    {
+        // Create 3 test packages, 2 of them will throw exceptions
+        $packageOne = $this->createMock(PackageInterface::class);
+        $packageTwo = $this->createMock(PackageInterface::class);
+        $packageThree = $this->createMock(PackageInterface::class);
+
+        // Create appropriate link definitions
+        // $packageTwo wont have one as it throws an errors
+        $linkDefinitionOne = $this->createMock(LinkDefinition::class);
+        $linkDefinitionThree = $this->createMock(LinkDefinition::class);
+
+        // Mock the link definition factory to throw an exception when
+        // encountering $packageTwo, we expect this method to be called for
+        // all three packages despite the error
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(3))
+            ->method('createForPackage')
+            // phpcs:ignore
+            ->willReturnCallback(function ($package) use ($packageOne, $packageTwo, $packageThree, $linkDefinitionOne, $linkDefinitionThree) {
+                if ($package === $packageOne) {
+                    return $linkDefinitionOne;
+                }
+
+                if ($package === $packageTwo) {
+                    throw new ConfigNotFoundException('config not found');
+                }
+
+                if ($package === $packageThree) {
+                    return $linkDefinitionThree;
+                }
+
+                return $this->createMock(LinkDefinition::class);
+            });
+
+        // Mock the link file handler to throw an exception encountering
+        // $linkDefinitionThree, we still expect it to be called twice
+        // once for $packageOne, another for $packageThree
+        $this->linkFileHandler
+            ->expects($this->exactly(2))
+            ->method('unlink')
+            ->willReturnCallback(static function ($linkDefinition) use ($linkDefinitionThree) {
+                if ($linkDefinition === $linkDefinitionThree) {
+                    throw new InvalidConfigException('invalid config');
+                }
+            });
+
+        // Mock a repository returning the mock packages
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$packageOne, $packageTwo, $packageThree]);
+
+        try {
+            $this->linkExecutor->unlinkRepository($repository);
+            $this->assertFalse(true, 'No exception thrown');
+        }
+        catch (LinkExecutorExceptionCollection $e) {
+            $this->addToAssertionCount(1);
+
+            // The exception collection should contain one exception as
+            // config not found exceptions are ignored when linking repositories
+            $this->assertCount(1, $e->getExceptions());
         }
     }
 }
