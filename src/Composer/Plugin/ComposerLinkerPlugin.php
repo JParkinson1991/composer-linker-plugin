@@ -78,6 +78,7 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
         return [
             PackageEvents::POST_PACKAGE_INSTALL => 'linkPackageFromEvent',
             PackageEvents::POST_PACKAGE_UPDATE => 'linkPackageFromEvent',
+            PackageEvents::PRE_PACKAGE_UNINSTALL => 'cleanUpPlugin',
             PackageEvents::POST_PACKAGE_UNINSTALL => 'unlinkPackageFromEvent'
         ];
     }
@@ -143,5 +144,27 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
         catch (ConfigNotFoundException $e) {
             // Skip unhandled packages
         }
+    }
+
+    /**
+     * Cleans up all links created by this plugin prior to it's uninstallation
+     *
+     * @param \Composer\Installer\PackageEvent $event
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function cleanUpPlugin(PackageEvent $event): void
+    {
+        $package = $this->packageExtractor->extractFromEvent($event);
+        if ($package->getName() !== 'jparkinson1991/composer-linker-plugin') {
+            return;
+        }
+
+        $packageRepository = $event->getComposer()->getRepositoryManager()->getLocalRepository();
+        $event->getIO()->write('Cleaning up <info>'.$package->getName().'</info> links');
+
+        $this->linkExecutor->unlinkRepository($packageRepository);
     }
 }

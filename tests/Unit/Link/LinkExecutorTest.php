@@ -7,6 +7,7 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link;
 
 use Composer\Package\PackageInterface;
+use Composer\Repository\RepositoryInterface;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinition;
@@ -23,6 +24,43 @@ use PHPUnit\Framework\TestCase;
 class LinkExecutorTest extends TestCase
 {
     /**
+     * The mock link definition factory service
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactoryInterface|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $linkDefinitionFactory;
+
+    /**
+     * The link executor instance with mocked services available via class
+     * properties
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor
+     */
+    protected $linkExecutor;
+
+    /**
+     * The mocked link file handler service
+     *
+     * @var \JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandlerInterface|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $linkFileHandler;
+
+    /**
+     * Setups a a link executor with instance with accessible service mocks
+     *
+     * @return void
+     */
+    public function setUp(): void
+    {
+        $this->linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
+        $this->linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
+        $this->linkExecutor = new LinkExecutor(
+            $this->linkDefinitionFactory,
+            $this->linkFileHandler
+        );
+    }
+
+    /**
      * Tests that in optimal circumstance, the executor links a package
      *
      * @return void
@@ -33,21 +71,18 @@ class LinkExecutorTest extends TestCase
 
         $linkDefinition = $this->createMock(LinkDefinition::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->expects($this->once())
             ->method('createForPackage')
             ->with($package)
             ->willReturn($linkDefinition);
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+        $this->linkFileHandler
             ->expects($this->once())
             ->method('link')
             ->with($linkDefinition);
 
-        $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-        $linkExecutor->linkPackage($package);
+        $this->linkExecutor->linkPackage($package);
     }
 
     /**
@@ -59,20 +94,18 @@ class LinkExecutorTest extends TestCase
     {
         $package = $this->createMock(PackageInterface::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->method('createForPackage')
             ->with($package)
             ->willThrowException(new ConfigNotFoundException());
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+
+        $this->linkFileHandler
             ->expects($this->never())
             ->method('link');
 
         try {
-            $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-            $linkExecutor->linkPackage($package);
+            $this->linkExecutor->linkPackage($package);
         }
         catch (ConfigNotFoundException $e) {
             $this->addToAssertionCount(1);
@@ -89,20 +122,17 @@ class LinkExecutorTest extends TestCase
     {
         $package = $this->createMock(PackageInterface::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->method('createForPackage')
             ->with($package)
             ->willThrowException(new InvalidConfigException());
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+        $this->linkFileHandler
             ->expects($this->never())
             ->method('link');
 
         try {
-            $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-            $linkExecutor->linkPackage($package);
+            $this->linkExecutor->linkPackage($package);
         }
         catch (InvalidConfigException $e) {
             $this->addToAssertionCount(1);
@@ -120,21 +150,18 @@ class LinkExecutorTest extends TestCase
 
         $linkDefinition = $this->createMock(LinkDefinition::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->expects($this->once())
             ->method('createForPackage')
             ->with($package)
             ->willReturn($linkDefinition);
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+        $this->linkFileHandler
             ->expects($this->once())
             ->method('unlink')
             ->with($linkDefinition);
 
-        $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-        $linkExecutor->unlinkPackage($package);
+        $this->linkExecutor->unlinkPackage($package);
     }
 
     /**
@@ -146,20 +173,17 @@ class LinkExecutorTest extends TestCase
     {
         $package = $this->createMock(PackageInterface::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->method('createForPackage')
             ->with($package)
             ->willThrowException(new ConfigNotFoundException());
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+        $this->linkFileHandler
             ->expects($this->never())
             ->method('unlink');
 
         try {
-            $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-            $linkExecutor->unlinkPackage($package);
+            $this->linkExecutor->unlinkPackage($package);
         }
         catch (ConfigNotFoundException $e) {
             $this->addToAssertionCount(1);
@@ -176,23 +200,102 @@ class LinkExecutorTest extends TestCase
     {
         $package = $this->createMock(PackageInterface::class);
 
-        $linkDefinitionFactory = $this->createMock(LinkDefinitionFactoryInterface::class);
-        $linkDefinitionFactory
+        $this->linkDefinitionFactory
             ->method('createForPackage')
             ->with($package)
             ->willThrowException(new InvalidConfigException());
 
-        $linkFileHandler = $this->createMock(LinkFileHandlerInterface::class);
-        $linkFileHandler
+        $this->linkFileHandler
             ->expects($this->never())
             ->method('unlink');
 
         try {
-            $linkExecutor = new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-            $linkExecutor->linkPackage($package);
+            $this->linkExecutor->linkPackage($package);
         }
         catch (InvalidConfigException $e) {
             $this->addToAssertionCount(1);
+        }
+    }
+
+    /**
+     * Tests that the executor is able to unlink all necessary packages within
+     * a given repository
+     *
+     * @return void
+     */
+    public function testItUnlinksARepository()
+    {
+        $package1 = $this->createMock(PackageInterface::class);
+        $package2 = $this->createMock(PackageInterface::class);
+
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$package1, $package2]);
+
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(2))
+            ->method('createForPackage')
+            ->withConsecutive([$package1], [$package2]);
+
+        $this->linkFileHandler
+            ->expects($this->exactly(2))
+            ->method('unlink');
+
+        $this->linkExecutor->unlinkRepository($repository);
+    }
+
+    /**
+     * Tests that when the executor unlinks a repository it does not treat
+     * config not found exceptions as errors.
+     *
+     * Unlink an entire repository should essentially act as a finder, finding
+     * all relevant packages and unlink them as required.
+     *
+     * @return void
+     */
+    public function testUnlinkRepositoryIgnoresConfigNotFoundExceptions()
+    {
+        $package1 = $this->createMock(PackageInterface::class);
+        $package2 = $this->createMock(PackageInterface::class);
+
+        $linkDefinition = $this->createMock(LinkDefinition::class);
+
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$package1, $package2]);
+
+        // Have the link definition factory throw an exception for $package1
+        // It should still be called twices as config not found is not an
+        // error
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(2))
+            ->method('createForPackage')
+            ->willReturnCallback(function ($package) use ($package1, $linkDefinition) {
+                if ($package === $package1) {
+                    throw new ConfigNotFoundException();
+                }
+
+                return $linkDefinition;
+            });
+
+        // Despite the config not found exception, ensure $package2 still
+        // unlinked
+        $this->linkFileHandler
+            ->expects($this->exactly(1))
+            ->method('unlink');
+
+        try {
+            $this->linkExecutor->unlinkRepository($repository);
+        }
+        catch (ConfigNotFoundException $e) {
+            // Add a test failure if config not found exception was not
+            // caught by the executor
+            $this->assertFalse(
+                true,
+                'Config not found exception thrown when unlinking a repository'
+            );
         }
     }
 }

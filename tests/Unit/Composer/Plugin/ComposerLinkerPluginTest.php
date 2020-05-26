@@ -14,7 +14,10 @@ use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
 use Composer\Package\Package;
+use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
+use Composer\Repository\RepositoryInterface;
+use Composer\Repository\RepositoryManager;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
@@ -66,6 +69,8 @@ class ComposerLinkerPluginTest extends TestCase
      * Essentially creates an activated instance of the plugin with
      * mockable services that can be used in the test cases
      *
+     * @return void
+     *
      * @throws \ReflectionException
      */
     public function setUp(): void
@@ -113,6 +118,8 @@ class ComposerLinkerPluginTest extends TestCase
 
     /**
      * Tests that the plugin is subscribed to the expected events
+     *
+     * @return void
      */
     public function testSubscribedToExpectedEvents(): void
     {
@@ -125,15 +132,18 @@ class ComposerLinkerPluginTest extends TestCase
 
         $subscribedEvents = $plugin::getSubscribedEvents();
 
-        $this->assertCount(3, $subscribedEvents);
+        $this->assertCount(4, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_INSTALL, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UPDATE, $subscribedEvents);
+        $this->assertArrayHasKey(PackageEvents::PRE_PACKAGE_UNINSTALL, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UNINSTALL, $subscribedEvents);
     }
 
     /**
      * Tests that the plugin exits and outputs an error message if package
      * extraction throws an exception
+     *
+     * @return void
      */
     public function testPackageLinkingExitsWithErrorOnExtractionException(): void
     {
@@ -168,6 +178,8 @@ class ComposerLinkerPluginTest extends TestCase
      * package that trigger the post package install/update event.
      *
      * This is not an error, thus should not be treated as one
+     *
+     * @return void
      */
     public function testPackageLinkingSilentlyExitsOnConfigNotFound(): void
     {
@@ -200,6 +212,8 @@ class ComposerLinkerPluginTest extends TestCase
     /**
      * Tests that the plugin exists and outputs an error message if a package
      * config is deemed to be invalid
+     *
+     * @return void
      */
     public function testPackageLinkingExitsWithOnInvalidConfigException(): void
     {
@@ -227,6 +241,8 @@ class ComposerLinkerPluginTest extends TestCase
      * That is, when a package has associated config, it is extracted
      * successfully from the package event then it should be passed to the
      * file handler for linking.
+     *
+     * @return void
      */
     public function testItRunsPackageLinking(): void
     {
@@ -245,6 +261,8 @@ class ComposerLinkerPluginTest extends TestCase
     /**
      * Tests that the plugin exits during unlinking if the package can not be
      * extracted from the given event.
+     *
+     * @return void
      */
     public function testUnlinkExitsWithErrorOnExtractionException(): void
     {
@@ -276,6 +294,8 @@ class ComposerLinkerPluginTest extends TestCase
      * Tests that during package unlinking (ie, when triggered by the package
      * uninstall event) that if no config is found for the given package then
      * the plugin will silently exit, no error, no exception, no log
+     *
+     * @return void
      */
     public function testUnlinkingSilentlyExitsOnConfigNotFound(): void
     {
@@ -300,7 +320,9 @@ class ComposerLinkerPluginTest extends TestCase
 
     /**
      * Tests that the plugin exists during unlinking if the package has
-     * invalid config assocaited with it
+     * invalid config associated with it
+     *
+     * @return void
      */
     public function testUnlinkExitsWithErrorOnInvalidConfig(): void
     {
@@ -324,6 +346,8 @@ class ComposerLinkerPluginTest extends TestCase
     /**
      * That package unlinking is attempted when a handled package with
      * valid config is extracted from the uninstall event
+     *
+     * @return void
      */
     public function testItRunsPackageUnlinking(): void
     {
@@ -339,18 +363,83 @@ class ComposerLinkerPluginTest extends TestCase
     }
 
     /**
+     * Tests that plugin cleanup is not executed if a package is uninstalled
+     * that is not this plugin.
+     *
+     * @return void
+     */
+    public function testPluginCleanupIgnoredIfPluginNotUninstalled(): void
+    {
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('not/the-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Ensure the unlink repository is not called on the executor
+        $this->linkExecutor
+            ->expects($this->never())
+            ->method('unlinkRepository');
+
+        $this->plugin->cleanUpPlugin($event);
+    }
+
+    public function testPluginCleanupExecutedOnPluginUninstall()
+    {
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Configure a mock repository and it's parent that can be accessed
+        // by the mock event
+        $repository = $this->createMock(RepositoryInterface::class);
+
+        $repositoryManager = $this->createMock(RepositoryManager::class);
+        $repositoryManager
+            ->method('getLocalRepository')
+            ->willReturn($repository);
+
+        $composer = $this->createMock(Composer::class);
+        $composer
+            ->method('getRepositoryManager')
+            ->willReturn($repositoryManager);
+
+        $event
+            ->method('getComposer')
+            ->willReturn($composer);
+
+        // Ensure the event has a mocked io for output
+        $event
+            ->method('getIO')
+            ->willReturn($this->createMock(IOInterface::class));
+
+        // Ensure the unlink repository is not called on the executor
+        $this->linkExecutor
+            ->expects($this->once())
+            ->method('unlinkRepository');
+
+        $this->plugin->cleanUpPlugin($event);
+    }
+
+    /**
      * Creates a package event from the passed package object and configures
      * the package extractor property (thus service within the plugin) to
      * return the known package from the event when it's encountered as a
      * method parameter
      *
-     * @param Package $package
+     * @param PackageInterface $package
      *     The package to configure within the event
      *
      * @return \Composer\Installer\PackageEvent|\PHPUnit\Framework\MockObject\MockObject
      *     The mocked, plugin handled event
      */
-    protected function createConfiguredEventReturningPackage(Package $package): MockObject
+    protected function createConfiguredEventReturningPackage(PackageInterface $package): MockObject
     {
         // Mock an event class
         $event = $this->createMock(PackageEvent::class);
