@@ -18,7 +18,7 @@ class LinkExecutorExceptionCollection extends Exception
     /**
      * Holds all of the exceptions belonging to the collection
      *
-     * @var \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException
+     * @var \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException[]
      */
     protected $exceptions = [];
 

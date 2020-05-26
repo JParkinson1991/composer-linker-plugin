@@ -51,7 +51,7 @@ class LinkExecutorException extends Exception
         $this->package = $package;
         $this->executionException = $executionException;
 
-        parent::__construct($message, $executionException->getCode(), $previous);
+        parent::__construct($message, (int)$executionException->getCode(), $previous);
     }
 
     /**
