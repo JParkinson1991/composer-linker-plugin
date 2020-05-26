@@ -8,7 +8,10 @@ namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 use Composer\Package\PackageInterface;
 use Composer\Repository\RepositoryInterface;
+use Exception;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
 
 /**
  * Class LinkExecutor
@@ -54,12 +57,17 @@ class LinkExecutor implements LinkExecutorInterface
      *
      * @return void
      *
-     * @throws \Exception
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException
      */
     public function linkPackage(PackageInterface $package): void
     {
-        $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
-        $this->linkFileHandler->link($linkDefinition);
+        try {
+            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
+            $this->linkFileHandler->link($linkDefinition);
+        }
+        catch (Exception $e) {
+            throw new LinkExecutorException($package, $e);
+        }
     }
 
     /**
@@ -71,12 +79,17 @@ class LinkExecutor implements LinkExecutorInterface
      *
      * @return void
      *
-     * @throws \Exception
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException
      */
     public function unlinkPackage(PackageInterface $package): void
     {
-        $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
-        $this->linkFileHandler->unlink($linkDefinition);
+        try {
+            $linkDefinition = $this->linkDefinitionFactory->createForPackage($package);
+            $this->linkFileHandler->unlink($linkDefinition);
+        }
+        catch (Exception $e) {
+            throw new LinkExecutorException($package, $e);
+        }
     }
 
     /**
@@ -90,18 +103,27 @@ class LinkExecutor implements LinkExecutorInterface
      *
      * @return void
      *
-     * @throws \Exception
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection
      */
     public function unlinkRepository(RepositoryInterface $repository): void
     {
+        $exceptionCollection = new LinkExecutorExceptionCollection();
+
         foreach ($repository->getPackages() as $package) {
             try {
                 $this->unlinkPackage($package);
             }
-            catch (ConfigNotFoundException $e) {
-                // config not found not an exception when processing all
+            catch (LinkExecutorException $e) {
+                // config not found not treated an error when processing all
                 // within a repository
+                if (!$e->getExecutionException() instanceof ConfigNotFoundException) {
+                    $exceptionCollection->addException($e);
+                }
             }
+        }
+
+        if ($exceptionCollection->hasExceptions()) {
+            throw $exceptionCollection;
         }
     }
 }

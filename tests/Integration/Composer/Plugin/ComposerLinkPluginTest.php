@@ -310,7 +310,12 @@ class ComposerLinkPluginTest extends TestCase
         }
     }
 
-
+    /**
+     * Tests that when this plugin is uninstalled it cleans up all previously
+     * linked package files.
+     *
+     * @return void
+     */
     public function testItCleansUpAfterPluginUninstall(): void
     {
         // Create mock package files

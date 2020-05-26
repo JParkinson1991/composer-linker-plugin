@@ -18,11 +18,14 @@ use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Repository\RepositoryManager;
+use Exception;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ReflectionMutatorTrait;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -72,6 +75,8 @@ class ComposerLinkerPluginTest extends TestCase
      * @return void
      *
      * @throws \ReflectionException
+     *
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -186,12 +191,17 @@ class ComposerLinkerPluginTest extends TestCase
         // Create a test package, and a configured event that contains it
         $package = new Package('test/package', '1.0.0', '1');
 
+        $exception = $this->createMock(LinkExecutorException::class);
+        $exception
+            ->method('getExecutionException')
+            ->willReturn(new ConfigNotFoundException());
+
         // Configure the definition factory to throw a config not found
         // exception when encountering our test package
         $this->linkExecutor
             ->method('linkPackage')
             ->with($package)
-            ->willThrowException(new ConfigNotFoundException());
+            ->willThrowException($exception);
 
         // Mock an io instance, asserting no logging/output methods called
         $io = $this->createMock(IOInterface::class);
@@ -219,10 +229,15 @@ class ComposerLinkerPluginTest extends TestCase
     {
         $package = new Package('test/package', '1.0.0', '1');
 
+        $exception = $this->createMock(LinkExecutorException::class);
+        $exception
+            ->method('getExecutionException')
+            ->willReturn(new InvalidConfigException());
+
         $this->linkExecutor
             ->method('linkPackage')
             ->with($package)
-            ->willThrowException(new InvalidConfigException());
+            ->willThrowException($exception);
 
         // Mock an IO instance for observation, ensure it logs an error
         $io = $this->createMock(IOInterface::class);
@@ -303,11 +318,16 @@ class ComposerLinkerPluginTest extends TestCase
         $package = new Package('test/package', '1.0.0', '1');
         $event = $this->createConfiguredEventReturningPackage($package);
 
+        $exception = $this->createMock(LinkExecutorException::class);
+        $exception
+            ->method('getExecutionException')
+            ->willReturn(new ConfigNotFoundException());
+
         // Have the link definition factory return not found exception
         $this->linkExecutor
             ->method('unlinkPackage')
             ->with($package)
-            ->willThrowException(new ConfigNotFoundException());
+            ->willThrowException($exception);
 
         // Mock an IO instance so logging/output can be monitored
         // Inject into event
@@ -328,10 +348,15 @@ class ComposerLinkerPluginTest extends TestCase
     {
         $package = new Package('test/package', '1.0.0', '1');
 
+        $exception = $this->createMock(LinkExecutorException::class);
+        $exception
+            ->method('getExecutionException')
+            ->willReturn(new InvalidConfigException());
+
         $this->linkExecutor
             ->method('unlinkPackage')
             ->with($package)
-            ->willThrowException(new InvalidConfigException());
+            ->willThrowException($exception);
 
         // Mock an IO instance for observation, ensure it logs an error
         $io = $this->createMock(IOInterface::class);
@@ -367,6 +392,8 @@ class ComposerLinkerPluginTest extends TestCase
      * that is not this plugin.
      *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testPluginCleanupIgnoredIfPluginNotUninstalled(): void
     {
@@ -386,16 +413,16 @@ class ComposerLinkerPluginTest extends TestCase
         $this->plugin->cleanUpPlugin($event);
     }
 
-    public function testPluginCleanupExecutedOnPluginUninstall()
+    /**
+     * Tests that if the plugin is uninstalled it will clean up after itself
+     * removing all previously linked package files.
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testPluginCleanupExecutedOnPluginUninstall(): void
     {
-        $package = $this->createMock(PackageInterface::class);
-        $package
-            ->method('getName')
-            ->willReturn('jparkinson1991/composer-linker-plugin');
-
-        // Create an event for this package
-        $event = $this->createConfiguredEventReturningPackage($package);
-
         // Configure a mock repository and it's parent that can be accessed
         // by the mock event
         $repository = $this->createMock(RepositoryInterface::class);
@@ -409,6 +436,15 @@ class ComposerLinkerPluginTest extends TestCase
         $composer
             ->method('getRepositoryManager')
             ->willReturn($repositoryManager);
+
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
 
         $event
             ->method('getComposer')
@@ -425,6 +461,66 @@ class ComposerLinkerPluginTest extends TestCase
             ->method('unlinkRepository');
 
         $this->plugin->cleanUpPlugin($event);
+    }
+
+    /**
+     * Tests that any exceptions thrown during plugin cleanup are caught
+     * and do not break execution of the cleanup process
+     *
+     * @return void
+     */
+    public function testPluginCleanupExceptionsDoNotBreakExecution(): void
+    {
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Mock a usable composer instance for use with the event
+        $repositoryManager = $this->createMock(RepositoryManager::class);
+        $repositoryManager
+            ->method('getLocalRepository')
+            ->willReturn($this->createMock(RepositoryInterface::class));
+
+        $composer = $this->createMock(Composer::class);
+        $composer
+            ->method('getRepositoryManager')
+            ->willReturn($repositoryManager);
+
+        $event
+            ->method('getComposer')
+            ->willReturn($composer);
+
+        // Create mock io, expect at least one error write
+        $io = $this->createMock(IOInterface::class);
+        $io
+            ->expects($this->atLeastOnce())
+            ->method('writeError');
+
+        $event
+            ->method('getIO')
+            ->willReturn($io);
+
+        // Create an exception collection, add a few exceptions to it
+        $exceptionCollection = new LinkExecutorExceptionCollection();
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+
+        $this->linkExecutor
+            ->method('unlinkRepository')
+            ->willThrowException($exceptionCollection);
+
+        try {
+            $this->plugin->cleanUpPlugin($event);
+        }
+        catch (Exception $e) {
+            // Trigger an assertation error if exception was thrown
+            $this->assertFalse(true, 'Exception thrown during plugin cleanup');
+        }
     }
 
     /**
