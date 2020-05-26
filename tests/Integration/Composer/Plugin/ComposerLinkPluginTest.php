@@ -15,6 +15,9 @@ use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackage;
+use Composer\Repository\RepositoryInterface;
+use Composer\Repository\RepositoryManager;
+use InvalidArgumentException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use PHPUnit\Framework\TestCase;
@@ -48,6 +51,13 @@ class ComposerLinkPluginTest extends TestCase
     protected $composer;
 
     /**
+     * Mocked installation manager
+     *
+     * @var \Composer\Installer\InstallationManager|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $installationManager;
+
+    /**
      * Mocked test package object with name TEST_PACKAGE_NAME
      *
      * @var \Composer\Package\PackageInterface|\PHPUnit\Framework\MockObject\MockObject
@@ -56,8 +66,13 @@ class ComposerLinkPluginTest extends TestCase
 
     /**
      * Holds what will be treat as the project root path during these tests
+     *
+     * @var string
      */
     protected $projectRootPath;
+
+
+    protected $repositoryManager;
 
     /**
      * Mock root package object, holds plugin config.
@@ -104,11 +119,14 @@ class ComposerLinkPluginTest extends TestCase
         // Create a mock installation manager that will return the a known
         // installation path within the test project root. Not class property
         // doesnt need to be used again
-        $installationManager = $this->createMock(InstallationManager::class);
-        $installationManager
+        $this->installationManager = $this->createMock(InstallationManager::class);
+        $this->installationManager
             ->method('getInstallPath')
             ->with($this->package)
             ->willReturn($this->projectRootPath.'/vendor/test/package');
+
+        // Create a configurable mock repository manager
+        $this->repositoryManager = $this->createMock(RepositoryManager::class);
 
         // Some functionality outside of the control of this package must
         // still be mocked. Class property to avoid per test case configuration.
@@ -123,10 +141,13 @@ class ComposerLinkPluginTest extends TestCase
             ->willReturn($config);
         $this->composer
             ->method('getInstallationManager')
-            ->willReturn($installationManager);
+            ->willReturn($this->installationManager);
         $this->composer
             ->method('getPackage')
             ->willReturn($this->rootPackage);
+        $this->composer
+            ->method('getRepositoryManager')
+            ->willReturn($this->repositoryManager);
 
         // Create all the required files
         $fileSystem = new Filesystem();
@@ -287,6 +308,102 @@ class ComposerLinkPluginTest extends TestCase
         foreach ($expectFileExists as $expectedFileExistsStub) {
             $this->assertFileExists($this->toAbsolutePath($expectedFileExistsStub));
         }
+    }
+
+
+    public function testItCleansUpAfterPluginUninstall(): void
+    {
+        // Create mock package files
+        $fileSystem = new Filesystem();
+        $fileSystem->mkdir([
+            $this->toAbsolutePath('vendor/package-one'),
+            $this->toAbsolutePath('vendor/package-two')
+        ]);
+        $fileSystem->touch([
+            $this->toAbsolutePath('vendor/package-one/file.txt'),
+            $this->toAbsolutePath('vendor/package-two/file.txt')
+        ]);
+
+        // Create the mock packages
+        $packageOne = $this->createMock(PackageInterface::class);
+        $packageOne
+            ->method('getName')
+            ->willReturn('package/one');
+        $packageTwo = $this->createMock(PackageInterface::class);
+        $packageTwo
+            ->method('getName')
+            ->willReturn('package/two');
+
+        // Configure composer's local repository to store these two packages
+        // Essentially telling the mocks and the plugin that these packages
+        // are installed
+        $this->configureLocalRepository([
+            $packageOne,
+            $packageTwo
+        ]);
+
+        // Configure the installation manager to return expected package dirs
+        // for the two mocked packages
+        $this->installationManager
+            ->method('getInstallPath')
+            ->willReturnCallback(function ($package) use ($packageOne, $packageTwo) {
+                if ($package === $packageOne) {
+                    return $this->toAbsolutePath('vendor/package-one');
+                }
+
+                if ($package === $packageTwo) {
+                    return $this->toAbsolutePath('vendor/package-two');
+                }
+
+                throw new InvalidArgumentException('Unhandled packaged');
+            });
+
+        // Configure the plugin
+        $this->configurePlugin([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'package/one' => 'linked-package-one',
+                    'package/two' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-two'
+                    ]
+                ]
+            ]
+        ]);
+
+        // Mimick an already existing linked context
+        $fileSystem->mkdir([
+            $this->toAbsolutePath('linked-package-one'),
+            $this->toAbsolutePath('linked-package-two')
+        ]);
+        $fileSystem->touch([
+            $this->toAbsolutePath('linked-package-one/file.txt'),
+            $this->toAbsolutePath('linked-package-two/file.txt')
+        ]);
+
+        // Assert everything exists as expected
+        $this->assertFileExists($this->toAbsolutePath('vendor/package-one'));
+        $this->assertFileExists($this->toAbsolutePath('vendor/package-one/file.txt'));
+        $this->assertFileExists($this->toAbsolutePath('vendor/package-two'));
+        $this->assertFileExists($this->toAbsolutePath('vendor/package-two/file.txt'));
+        $this->assertFileExists($this->toAbsolutePath('linked-package-one'));
+        $this->assertFileExists($this->toAbsolutePath('linked-package-one/file.txt'));
+        $this->assertFileExists($this->toAbsolutePath('linked-package-two'));
+        $this->assertFileExists($this->toAbsolutePath('linked-package-two/file.txt'));
+
+        // Create a mock package for the plugin
+        $pluginPackage = $this->createMock(PackageInterface::class);
+        $pluginPackage
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Run the cleanup action on the plugin
+        $this->runPlugin('cleanup', $pluginPackage);
+
+        // Ensure non of the linked files exist anymore
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-package-one'));
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-package-one/file.txt'));
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-package-two'));
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-package-two/file.txt'));
     }
 
     /**
@@ -626,6 +743,27 @@ class ComposerLinkPluginTest extends TestCase
     }
 
     /**
+     * Configures the mocked repository manager, to return a local repository
+     * containing the given $packages
+     *
+     * @param PackageInterface[] $packages
+     *     The packages to store in the local repository
+     *
+     * @return void
+     */
+    protected function configureLocalRepository(array $packages): void
+    {
+        $localRepository = $this->createMock(RepositoryInterface::class);
+        $localRepository
+            ->method('getPackages')
+            ->willReturn($packages);
+
+        $this->repositoryManager
+            ->method('getLocalRepository')
+            ->willReturn($localRepository);
+    }
+
+    /**
      * Runs the given action on the plugin
      *
      * This method handles mock creation/configuration of events that are
@@ -636,8 +774,12 @@ class ComposerLinkPluginTest extends TestCase
      *
      * @return void
      */
-    protected function runPlugin(string $action): void
+    protected function runPlugin(string $action, PackageInterface $package = null): void
     {
+        if ($package === null) {
+            $package = $this->package;
+        }
+
         // Create the plugin, using class property composer configured and
         // ready to use test project package etc
         $composerLinkerPlugin = new ComposerLinkerPlugin();
@@ -655,11 +797,17 @@ class ComposerLinkPluginTest extends TestCase
         );
         $operation
             ->method('getPackage')
-            ->willReturn($this->package);
+            ->willReturn($package);
 
         // Create the package event, have it return the package containing
-        // operation
+        // operation as well as the mocked composer etc
         $event = $this->createMock(PackageEvent::class);
+        $event
+            ->method('getIO')
+            ->willReturn($this->createMock(IOInterface::class));
+        $event
+            ->method('getComposer')
+            ->willReturn($this->composer);
         $event
             ->method('getOperation')
             ->willReturn($operation);
@@ -670,6 +818,9 @@ class ComposerLinkPluginTest extends TestCase
                 break;
             case 'unlink':
                 $composerLinkerPlugin->unlinkPackageFromEvent($event);
+                break;
+            case 'cleanup':
+                $composerLinkerPlugin->cleanUpPlugin($event);
                 break;
             default:
                 throw new RuntimeException('what chu talkin bout willis');
