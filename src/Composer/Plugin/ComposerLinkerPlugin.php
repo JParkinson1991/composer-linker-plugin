@@ -7,6 +7,7 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Plugin;
 
 use Composer\Composer;
+use Composer\Config;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
@@ -17,6 +18,8 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhand
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\InvalidConfigException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
+use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
@@ -49,6 +52,8 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * @inheritDoc
+     *
+     * @throws \Exception
      */
     public function activate(Composer $composer, IOInterface $io): void
     {
@@ -105,14 +110,19 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
             $package = $this->packageExtractor->extractFromEvent($event);
             $this->linkExecutor->linkPackage($package);
         }
-        catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
-            $event->getIO()->writeError([
-                'Composer Linker Plugin: Error',
-                '> '.$e->getMessage()
-            ]);
-        }
-        catch (ConfigNotFoundException $e) {
-            // Skip unhandled packages
+        catch (PackageExtractionUnhandledEventOperationException | LinkExecutorException $e) {
+            if (
+                $e instanceof PackageExtractionUnhandledEventOperationException
+                || (
+                    $e instanceof LinkExecutorException
+                    && !$e->getExecutionException() instanceof ConfigNotFoundException
+                )
+            ) {
+                $event->getIO()->writeError([
+                    'Composer Linker Plugin: Error',
+                    '> '.$e->getMessage()
+                ]);
+            }
         }
     }
 
@@ -135,14 +145,19 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
             $package = $this->packageExtractor->extractFromEvent($event);
             $this->linkExecutor->unlinkPackage($package);
         }
-        catch (PackageExtractionUnhandledEventOperationException | InvalidConfigException $e) {
-            $event->getIO()->writeError([
-                'Composer Linker Plugin: Error',
-                '> '.$e->getMessage()
-            ]);
-        }
-        catch (ConfigNotFoundException $e) {
-            // Skip unhandled packages
+        catch (PackageExtractionUnhandledEventOperationException | LinkExecutorException $e) {
+            if (
+                $e instanceof PackageExtractionUnhandledEventOperationException
+                || (
+                    $e instanceof LinkExecutorException
+                    && !$e->getExecutionException() instanceof ConfigNotFoundException
+                )
+            ) {
+                $event->getIO()->writeError([
+                    'Composer Linker Plugin: Error',
+                    '> '.$e->getMessage()
+                ]);
+            }
         }
     }
 
@@ -165,6 +180,18 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
         $packageRepository = $event->getComposer()->getRepositoryManager()->getLocalRepository();
         $event->getIO()->write('Cleaning up <info>'.$package->getName().'</info> links');
 
-        $this->linkExecutor->unlinkRepository($packageRepository);
+        try {
+            $this->linkExecutor->unlinkRepository($packageRepository);
+        }
+        catch (LinkExecutorExceptionCollection $collection) {
+            $event->getIO()->writeError('<error>Error</error> Cleanup resulted in errors');
+            foreach ($collection->getExceptions() as $linkExecutorException) {
+                $event->getIO()->writeError(sprintf(
+                    '<info>%s</info>: %s',
+                    $linkExecutorException->getPackage()->getName(),
+                    $linkExecutorException->getExecutionException()->getMessage()
+                ));
+            }
+        }
     }
 }
