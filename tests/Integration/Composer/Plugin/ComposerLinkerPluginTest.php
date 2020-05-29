@@ -36,7 +36,7 @@ use Symfony\Component\Filesystem\Filesystem;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin
  */
-class ComposerLinkPluginTest extends TestCase
+class ComposerLinkerPluginTest extends TestCase
 {
     /**
      * The name of the test package that can be used in test cases of this class
@@ -183,6 +183,8 @@ class ComposerLinkPluginTest extends TestCase
      *     Expected files to not exists
      *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItLinksAPackage(
         array $pluginConfig,
@@ -269,6 +271,7 @@ class ComposerLinkPluginTest extends TestCase
      *     absolute by test case.
      *
      * @return void
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItUnlinksAPackage(
         array $pluginConfig,
@@ -315,6 +318,7 @@ class ComposerLinkPluginTest extends TestCase
      * linked package files.
      *
      * @return void
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItCleansUpAfterPluginUninstall(): void
     {
@@ -777,7 +781,14 @@ class ComposerLinkPluginTest extends TestCase
      * @param string $action
      *     Either link, or unlink
      *
+     * @param \Composer\Package\PackageInterface|null $package
+     *     The package to run against the plugin
+     *     If not provided, the default $this->package will be used
+     *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     * @throws \Exception
      */
     protected function runPlugin(string $action, PackageInterface $package = null): void
     {
