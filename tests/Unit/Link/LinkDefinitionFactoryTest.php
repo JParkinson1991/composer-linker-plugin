@@ -105,7 +105,6 @@ class LinkDefinitionFactoryTest extends TestCase
         $this->assertSame('dest/dir', $instance->getDestinationDir());
     }
 
-
     /**
      * Tests that the factory is able to instantiate a link definition object
      * from a simple string package config

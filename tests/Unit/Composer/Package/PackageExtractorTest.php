@@ -109,7 +109,6 @@ class PackageExtractorTest extends TestCase
         $operation->method($methodName)
             ->willReturn($this->testPackage);
 
-
         $event = $this->createMock(PackageEvent::class);
         $event->method('getOperation')
             ->willReturn($operation);

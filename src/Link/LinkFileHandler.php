@@ -54,7 +54,6 @@ class LinkFileHandler implements LinkFileHandlerInterface, LoggerAwareInterface
      */
     protected $symfonyFileSystem;
 
-
     /**
      * LinkFileHandler constructor.
      *

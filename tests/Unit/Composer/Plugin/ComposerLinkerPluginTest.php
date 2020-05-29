@@ -272,7 +272,6 @@ class ComposerLinkerPluginTest extends TestCase
         $this->plugin->linkPackageFromEvent($event);
     }
 
-
     /**
      * Tests that the plugin exits during unlinking if the package can not be
      * extracted from the given event.
@@ -441,7 +440,6 @@ class ComposerLinkerPluginTest extends TestCase
         $package
             ->method('getName')
             ->willReturn('jparkinson1991/composer-linker-plugin');
-
 
         // Create an event for this package
         $event = $this->createConfiguredEventReturningPackage($package);
