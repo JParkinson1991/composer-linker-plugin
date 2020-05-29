@@ -387,6 +387,145 @@ class ComposerLinkerPluginTest extends TestCase
     }
 
     /**
+     * Tests that plugin initialisation is not executed if a package is
+     * installed that is not this plugin.
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testPluginInitIgnoredIfPluginNotUninstalled(): void
+    {
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('not/the-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Ensure the unlink repository is not called on the executor
+        $this->linkExecutor
+            ->expects($this->never())
+            ->method('linkRepository');
+
+        $this->plugin->initPlugin($event);
+    }
+
+    /**
+     * Tests that when the plugin is installed that it attempts to link all
+     * packages found within any defined config.
+     *
+     * Useful if the user defines config prior to requiring the plugin in
+     * their project.
+     *
+     * @return void
+     */
+    public function testPluginInitExecutedOnPluginInstall(): void
+    {
+        // Configure a mock repository and it's parent that can be accessed
+        // by the mock event
+        $repository = $this->createMock(RepositoryInterface::class);
+
+        $repositoryManager = $this->createMock(RepositoryManager::class);
+        $repositoryManager
+            ->method('getLocalRepository')
+            ->willReturn($repository);
+
+        $composer = $this->createMock(Composer::class);
+        $composer
+            ->method('getRepositoryManager')
+            ->willReturn($repositoryManager);
+
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        $event
+            ->method('getComposer')
+            ->willReturn($composer);
+
+        // Ensure the event has a mocked io for output
+        $event
+            ->method('getIO')
+            ->willReturn($this->createMock(IOInterface::class));
+
+        // Ensure the unlink repository is not called on the executor
+        $this->linkExecutor
+            ->expects($this->once())
+            ->method('linkRepository');
+
+        $this->plugin->initPlugin($event);
+    }
+
+    /**
+     * Tests that exceptions throws during plugin initialisation do not beak
+     * composer execution (ie breaks plugin install).
+     *
+     * Init plugin exceptions should be caught and logged, but should not stop
+     * plugin install process.
+     *
+     * @return void
+     */
+    public function testPluginInitExceptionsDoNotBreakExecution(): void
+    {
+        $package = $this->createMock(PackageInterface::class);
+        $package
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Create an event for this package
+        $event = $this->createConfiguredEventReturningPackage($package);
+
+        // Mock a usable composer instance for use with the event
+        $repositoryManager = $this->createMock(RepositoryManager::class);
+        $repositoryManager
+            ->method('getLocalRepository')
+            ->willReturn($this->createMock(RepositoryInterface::class));
+
+        $composer = $this->createMock(Composer::class);
+        $composer
+            ->method('getRepositoryManager')
+            ->willReturn($repositoryManager);
+
+        $event
+            ->method('getComposer')
+            ->willReturn($composer);
+
+        // Create mock io, expect at least one error write
+        $io = $this->createMock(IOInterface::class);
+        $io
+            ->expects($this->atLeastOnce())
+            ->method('writeError');
+
+        $event
+            ->method('getIO')
+            ->willReturn($io);
+
+        // Create an exception collection, add a few exceptions to it
+        $exceptionCollection = new LinkExecutorExceptionCollection();
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+        $exceptionCollection->addException($this->createMock(LinkExecutorException::class));
+
+        $this->linkExecutor
+            ->method('linkRepository')
+            ->willThrowException($exceptionCollection);
+
+        try {
+            $this->plugin->initPlugin($event);
+        }
+        catch (Exception $e) {
+            // Trigger an assertation error if exception was thrown
+            $this->assertFalse(true, 'Exception thrown during plugin init');
+        }
+    }
+
+    /**
      * Tests that plugin cleanup is not executed if a package is uninstalled
      * that is not this plugin.
      *

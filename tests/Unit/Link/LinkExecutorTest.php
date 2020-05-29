@@ -231,6 +231,164 @@ class LinkExecutorTest extends TestCase
     }
 
     /**
+     * Tests that the executor is able to link all necessary packages within
+     * a given repository
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection
+     */
+    public function testItLinksARepository(): void
+    {
+        $package1 = $this->createMock(PackageInterface::class);
+        $package2 = $this->createMock(PackageInterface::class);
+
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$package1, $package2]);
+
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(2))
+            ->method('createForPackage')
+            ->withConsecutive([$package1], [$package2]);
+
+        $this->linkFileHandler
+            ->expects($this->exactly(2))
+            ->method('link');
+
+        $this->linkExecutor->linkRepository($repository);
+    }
+
+    /**
+     * Tests that executor ignores config not found exceptions when linking all
+     * it can within a repository.
+     *
+     * Linking a repository acts as finder, finding all relevant packages and
+     * linking them as required.
+     *
+     * @return void
+     */
+    public function testLinkRepositoryIgnoresConfigNotFoundExceptions(): void
+    {
+        $package1 = $this->createMock(PackageInterface::class);
+        $package2 = $this->createMock(PackageInterface::class);
+
+        $linkDefinition = $this->createMock(LinkDefinition::class);
+
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$package1, $package2]);
+
+        // Have the link definition factory throw an exception for $package1
+        // It should still be called twice as config not found is not an
+        // error
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(2))
+            ->method('createForPackage')
+            ->willReturnCallback(static function ($package) use ($package1, $linkDefinition) {
+                if ($package === $package1) {
+                    throw new ConfigNotFoundException('no config found');
+                }
+
+                return $linkDefinition;
+            });
+
+        // Despite the config not found exception, ensure $package2 still
+        // unlinked
+        $this->linkFileHandler
+            ->expects($this->once())
+            ->method('link');
+
+        try {
+            $this->linkExecutor->linkRepository($repository);
+        }
+        catch (LinkExecutorExceptionCollection $e) {
+            // Add a test failure if an exception thrown
+            // Config not found exceptions should not bubble out of the
+            // executor
+            $this->assertFalse(
+                true,
+                'Config not found exception bubbled outside of the executor'
+            );
+        }
+    }
+
+    /**
+     * Tests that when linking a repository, and link exceptions that are not
+     * config not found exceptions are caught and thrown after processing as
+     * part of an exception collection
+     *
+     * @return void
+     */
+    public function testLinkingRepositoryCatchesProcessExceptionsAndThrowsViaCollection(): void
+    {
+        // Create 3 test packages, 2 of them will throw exceptions
+        $packageOne = $this->createMock(PackageInterface::class);
+        $packageTwo = $this->createMock(PackageInterface::class);
+        $packageThree = $this->createMock(PackageInterface::class);
+
+        // Create appropriate link definitions
+        // $packageTwo wont have one as it throws an errors
+        $linkDefinitionOne = $this->createMock(LinkDefinition::class);
+        $linkDefinitionThree = $this->createMock(LinkDefinition::class);
+
+        // Mock the link definition factory to throw an exception when
+        // encountering $packageTwo, we expect this method to be called for
+        // all three packages despite the error
+        $this->linkDefinitionFactory
+            ->expects($this->exactly(3))
+            ->method('createForPackage')
+            // phpcs:ignore
+            ->willReturnCallback(function ($package) use ($packageOne, $packageTwo, $packageThree, $linkDefinitionOne, $linkDefinitionThree) {
+                if ($package === $packageOne) {
+                    return $linkDefinitionOne;
+                }
+
+                if ($package === $packageTwo) {
+                    throw new ConfigNotFoundException('config not found');
+                }
+
+                if ($package === $packageThree) {
+                    return $linkDefinitionThree;
+                }
+
+                return $this->createMock(LinkDefinition::class);
+            });
+
+        // Mock the link file handler to throw an exception encountering
+        // $linkDefinitionThree, we still expect it to be called twice
+        // once for $packageOne, another for $packageThree
+        $this->linkFileHandler
+            ->expects($this->exactly(2))
+            ->method('link')
+            ->willReturnCallback(static function ($linkDefinition) use ($linkDefinitionThree) {
+                if ($linkDefinition === $linkDefinitionThree) {
+                    throw new InvalidConfigException('invalid config');
+                }
+            });
+
+        // Mock a repository returning the mock packages
+        $repository = $this->createMock(RepositoryInterface::class);
+        $repository
+            ->method('getPackages')
+            ->willReturn([$packageOne, $packageTwo, $packageThree]);
+
+        try {
+            $this->linkExecutor->linkRepository($repository);
+            $this->assertFalse(true, 'No exception thrown');
+        }
+        catch (LinkExecutorExceptionCollection $e) {
+            $this->addToAssertionCount(1);
+
+            // The exception collection should contain one exception as
+            // config not found exceptions are ignored when linking repositories
+            $this->assertCount(1, $e->getExceptions());
+        }
+    }
+
+    /**
      * Tests that the executor is able to unlink all necessary packages within
      * a given repository
      *
@@ -284,7 +442,7 @@ class LinkExecutorTest extends TestCase
             ->willReturn([$package1, $package2]);
 
         // Have the link definition factory throw an exception for $package1
-        // It should still be called twices as config not found is not an
+        // It should still be called twice as config not found is not an
         // error
         $this->linkDefinitionFactory
             ->expects($this->exactly(2))

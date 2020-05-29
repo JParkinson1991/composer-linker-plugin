@@ -93,6 +93,40 @@ class LinkExecutor implements LinkExecutorInterface
     }
 
     /**
+     * Links all relevant packages within a given repository.
+     *
+     * Config not found errors are ignored by this method, invalid configs
+     * etc are still flagged.
+     *
+     * @param \Composer\Repository\RepositoryInterface $repository
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection
+     */
+    public function linkRepository(RepositoryInterface $repository): void
+    {
+        $exceptionCollection = new LinkExecutorExceptionCollection();
+
+        foreach ($repository->getPackages() as $package) {
+            try {
+                $this->linkPackage($package);
+            }
+            catch (LinkExecutorException $e) {
+                // Config not found exceptions are not treat as an error
+                // when linking all packages within a repository
+                if (!$e->getExecutionException() instanceof ConfigNotFoundException) {
+                    $exceptionCollection->addException($e);
+                }
+            }
+        }
+
+        if ($exceptionCollection->hasExceptions()) {
+            throw $exceptionCollection;
+        }
+    }
+
+    /**
      * Unlinks all relevant packages within a given repository.
      *
      * Config not found will not be treat as an error by this method,

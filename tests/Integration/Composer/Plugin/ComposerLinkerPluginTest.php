@@ -71,6 +71,11 @@ class ComposerLinkerPluginTest extends TestCase
      */
     protected $projectRootPath;
 
+    /**
+     * Holds the mock repository manager
+     *
+     * @var \Composer\Repository\RepositoryManager|\PHPUnit\Framework\MockObject\MockObject
+     */
     protected $repositoryManager;
 
     /**
@@ -119,10 +124,8 @@ class ComposerLinkerPluginTest extends TestCase
         // installation path within the test project root. Not class property
         // doesnt need to be used again
         $this->installationManager = $this->createMock(InstallationManager::class);
-        $this->installationManager
-            ->method('getInstallPath')
-            ->with($this->package)
-            ->willReturn($this->projectRootPath.'/vendor/test/package');
+        // Removal of installation manager config from setUp,
+        /* @see configureInstallPaths() */
 
         // Create a configurable mock repository manager
         $this->repositoryManager = $this->createMock(RepositoryManager::class);
@@ -191,6 +194,7 @@ class ComposerLinkerPluginTest extends TestCase
         array $expectFileNotExists
     ): void {
         // Configure and run the plugin using the provided config
+        $this->configureInstallPaths();
         $this->configurePlugin($pluginConfig);
         $this->runPlugin('link');
 
@@ -270,6 +274,7 @@ class ComposerLinkerPluginTest extends TestCase
      *     absolute by test case.
      *
      * @return void
+     *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItUnlinksAPackage(
@@ -279,6 +284,7 @@ class ComposerLinkerPluginTest extends TestCase
         array $expectFileExists
     ): void {
         // Configure and run the plugin creating the link file structure
+        $this->configureInstallPaths();
         $this->configurePlugin($pluginConfig);
         $this->runPlugin('link');
 
@@ -310,6 +316,93 @@ class ComposerLinkerPluginTest extends TestCase
         foreach ($expectFileExists as $expectedFileExistsStub) {
             $this->assertFileExists($this->toAbsolutePath($expectedFileExistsStub));
         }
+    }
+
+    /**
+     * Tests that the plugin initialises itself after it is installed by
+     * running link against any defined config that existed prior to
+     * installation.
+     *
+     * For example, a user writing plugin config before requiring it in their
+     * project.
+     *
+     * @return void
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testItInitialisesItselfAfterInstall(): void
+    {
+        // Create a second test package, first creating dummy files for it
+        $fileSystem = new Filesystem();
+        $fileSystem->mkdir([
+            $this->toAbsolutePath('vendor/another-test'),
+            $this->toAbsolutePath('vendor/another-test/src')
+        ]);
+        $fileSystem->touch([
+            $this->toAbsolutePath('vendor/another-test/src/file1.txt'),
+            $this->toAbsolutePath('vendor/another-test/src/file2.txt')
+        ]);
+
+        // Create the mock package for the above files
+        $anotherTestPackage = $this->createMock(PackageInterface::class);
+        $anotherTestPackage
+            ->method('getName')
+            ->willReturn('another/test');
+
+        // Initialise a local repository to hold the standard test package
+        // and the one created in this test case
+        $this->configureLocalRepository([
+            $this->package,
+            $anotherTestPackage
+        ]);
+
+        // Configure installation paths
+        // Test package configured by default
+        $this->configureInstallPaths([
+            'vendor/another-test' => $anotherTestPackage
+        ]);
+
+        // Configure the plugin
+        // Do simple link for standard test package
+        // Do specific file link for custom test package created in this test case
+        $this->configurePlugin([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    self::TEST_PACKAGE_NAME => 'linked-test-package',
+                    'another/test' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-another-test',
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                            'src/file1.txt' => 'linked-file1.txt'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+
+        // Create a mock package for the plugin
+        $pluginPackage = $this->createMock(PackageInterface::class);
+        $pluginPackage
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Run the init method with the plugin package
+        $this->runPlugin('init', $pluginPackage);
+
+        // Expect all standard $this->package files to exist in linked dir
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package'));
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package/README.md'));
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package/src'));
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package/src/Class.php'));
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package/src/Services'));
+        $this->assertFileExists($this->toAbsolutePath('linked-test-package/src/Services/Service.php'));
+
+        // Expect only the one file existed with new name for $anotherTestPackage
+        $this->assertFileExists($this->toAbsolutePath('linked-another-test'));
+        $this->assertFileExists($this->toAbsolutePath('linked-another-test/linked-file1.txt'));
+
+        // Ensure standard files not carried over for $anotherTestPackage
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-another-test/src'));
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-another-test/src/file1.txt'));
+        $this->assertFileDoesNotExist($this->toAbsolutePath('linked-another-test/src/file2.txt'));
     }
 
     /**
@@ -751,6 +844,44 @@ class ComposerLinkerPluginTest extends TestCase
     }
 
     /**
+     * Configure installation paths within the installation manager
+     *
+     * This method is abstract out of the setUp method as mocks can only
+     * be configured once per method per test case. Essentially, setting the
+     * default package install path in setup meant that no other installation
+     * paths could be configured correctly.
+     *
+     * Using this method, installation paths can be mocked in one go and will
+     * function as expected
+     *
+     * @param array<string, PackageInterface> $packageInstallPaths
+     *     An array of packages and their install path stubs as their key.
+     * @param bool $handleDefault
+     *     If true the default $this->package will be handled and have its
+     *     installation path returned
+     *
+     * @return void
+     */
+    protected function configureInstallPaths(array $packageInstallPaths = [], bool $handleDefault = true): void
+    {
+        $this->installationManager
+            ->method('getInstallPath')
+            ->willReturnCallback(function ($packageParam) use ($packageInstallPaths, $handleDefault) {
+                if ($packageParam === $this->package && $handleDefault) {
+                    return $this->toAbsolutePath('vendor/test/package');
+                }
+
+                foreach ($packageInstallPaths as $installPath => $package) {
+                    if ($packageParam === $package) {
+                        return $this->toAbsolutePath($installPath);
+                    }
+                }
+
+                throw new RuntimeException('Internal error, unhandled package install path');
+            });
+    }
+
+    /**
      * Configures the mocked repository manager, to return a local repository
      * containing the given $packages
      *
@@ -833,6 +964,9 @@ class ComposerLinkerPluginTest extends TestCase
                 break;
             case 'unlink':
                 $composerLinkerPlugin->unlinkPackageFromEvent($event);
+                break;
+            case 'init':
+                $composerLinkerPlugin->initPlugin($event);
                 break;
             case 'cleanup':
                 $composerLinkerPlugin->cleanUpPlugin($event);
