@@ -674,7 +674,6 @@ class LinkFileHandlerTest extends TestCase
                 }
             });
 
-
         // Run the unlink, populating the actual deleted dirs array allowing it
         // to be asserted against.
         $this->linkFileHandler->unlink($linkDefinition);
@@ -793,7 +792,6 @@ class LinkFileHandlerTest extends TestCase
             }
         }
 
-
         // Create storage array for orphan delete calls and exception calls
         $actualDeletePaths = [];
         $actualExceptionPaths = [];
@@ -820,7 +818,6 @@ class LinkFileHandlerTest extends TestCase
                 if (!in_array($removeMethodParam, $actualDeletePaths, true)) {
                     $actualDeletePaths[] = $removeMethodParam;
                 }
-
 
                 return true;
             });

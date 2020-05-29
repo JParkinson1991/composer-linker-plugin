@@ -71,7 +71,6 @@ class ComposerLinkerPluginTest extends TestCase
      */
     protected $projectRootPath;
 
-
     protected $repositoryManager;
 
     /**

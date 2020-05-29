@@ -93,7 +93,6 @@ class LinkDefinitionTest extends TestCase
         $this->assertFalse($linkDefinition->getDeleteOrphanDirs());
     }
 
-
     /**
      * Tests that specific files can be set against the link definition and
      * returned in the expected format.
