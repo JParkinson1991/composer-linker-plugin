@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * LinkCommandTest.php
+ * UnlinkCommandTest.php
  */
 
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Commands;
@@ -10,7 +10,7 @@ use Composer\Composer;
 use Composer\Package\PackageInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Repository\RepositoryManager;
-use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\LinkCommand;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\UnlinkCommand;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Tests\Support\ReflectionMutatorTrait;
@@ -19,11 +19,11 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Class LinkCommandTest
+ * Class UnlinkCommandTest
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Commands
  */
-class LinkCommandTest extends TestCase
+class UnlinkCommandTest extends TestCase
 {
     /**
      * Use reflection accessors
@@ -58,7 +58,7 @@ class LinkCommandTest extends TestCase
 
         // Create an extension of the link command which can have its services
         // mocked easily
-        $linkCommand = new class ($packageLocator) extends LinkCommand {
+        $linkCommand = new class ($packageLocator) extends UnlinkCommand {
             // Settable mock properties
             public $mockComposer;
             public $mockLinkExecutor;
@@ -111,13 +111,13 @@ class LinkCommandTest extends TestCase
      * Test the command uses the expected name stub
      *
      * @return void
-     * 
+     *
      * @throws \ReflectionException
      */
     public function testUsesExpectedNameStub(): void
     {
         $this->assertSame(
-            'link',
+            'unlink',
             $this->callObjectMethod(
                 $this->command,
                 'nameStub'
@@ -136,7 +136,7 @@ class LinkCommandTest extends TestCase
     {
         $this->linkExecutor
             ->expects($this->exactly(4))
-            ->method('linkPackage');
+            ->method('unlinkPackage');
 
         $input = $this->createMock(InputInterface::class);
         $input
@@ -166,7 +166,7 @@ class LinkCommandTest extends TestCase
     {
         $this->linkExecutor
             ->expects($this->once())
-            ->method('linkRepository');
+            ->method('unlinkRepository');
 
         $this->command->run(
             $this->createMock(InputInterface::class),
