@@ -7,6 +7,8 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Commands;
 
 use Composer\Plugin\Capability\CommandProvider;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocator;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface;
 
 /**
  * Class ComposerLinkerPluginCommandProvider
@@ -20,9 +22,11 @@ class ComposerLinkerPluginCommandProvider implements CommandProvider
      */
     public function getCommands(): array
     {
+        $packageLocator = new PackageLocator();
+
         return [
-            new LinkCommand(),
-            new UnlinkCommand()
+            new LinkCommand($packageLocator),
+            new UnlinkCommand($packageLocator)
         ];
     }
 }

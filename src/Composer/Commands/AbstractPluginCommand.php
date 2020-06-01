@@ -13,6 +13,7 @@ use Composer\Package\PackageInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Util\Filesystem as ComposerFilesystem;
 use InvalidArgumentException;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface;
 use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
@@ -32,6 +33,25 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFilesystem;
  */
 abstract class AbstractPluginCommand extends BaseCommand
 {
+    /**
+     * The local package locator
+     *
+     * @var PackageLocatorInterface
+     */
+    protected $packageLocator;
+
+    /**
+     * AbstractPluginCommand constructor.
+     *
+     * @param \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface $packageLocator
+     */
+    public function __construct(PackageLocatorInterface $packageLocator)
+    {
+        $this->packageLocator = $packageLocator;
+
+        parent::__construct(null);
+    }
+
     /**
      * Returns the name stub to automatically be applied to full command names
      * and aliases
@@ -127,14 +147,17 @@ abstract class AbstractPluginCommand extends BaseCommand
 
         // Command names provided, try load package and execute each of them
         try {
-            $packages = $this->loadPackages($packageNames, $repository);
+            $packages = [];
+            foreach ($packageNames as $packageName) {
+                $packages[] = $this->packageLocator->getFromRepository($packageName, $repository);
+            }
 
             return $this->executePackages($packages, $linkExecutor, $output);
         }
         catch (InvalidArgumentException $e) {
             $output->writeln('<error>Error</error> '.$e->getMessage());
 
-            return 0;
+            return 1;
         }
     }
 
@@ -233,7 +256,7 @@ abstract class AbstractPluginCommand extends BaseCommand
      * @throws \Exception
      */
     // phpcs:ignore
-    private function createLinkExecutor(Composer $composer, InputInterface $input, OutputInterface $output): LinkExecutor
+    protected function createLinkExecutor(Composer $composer, InputInterface $input, OutputInterface $output): LinkExecutor
     {
         $linkDefinitionFactory = new LinkDefinitionFactory($composer->getPackage());
         $linkFileHandler = new LinkFileHandler(
@@ -250,38 +273,5 @@ abstract class AbstractPluginCommand extends BaseCommand
         )));
 
         return new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
-    }
-
-    /**
-     * Loads and returns package objects from a repository using a list of
-     * package names.
-     *
-     * @param string[] $packageNames
-     * @param \Composer\Repository\RepositoryInterface $repository
-     *
-     * @return \Composer\Package\PackageInterface[]
-     */
-    private function loadPackages(array $packageNames, RepositoryInterface $repository): array
-    {
-        $packages = [];
-        foreach ($packageNames as $packageName) {
-            $foundPackages = $repository->findPackages($packageName);
-
-            if (count($foundPackages) === 0) {
-                throw new InvalidArgumentException(
-                    'Failed to find package <info>'.$packageName.'</info>'
-                );
-            }
-
-            if (count($foundPackages) > 1) {
-                throw new InvalidArgumentException(
-                    'Found multiple packages for <info>'.$packageName.'</info>. Be more specific'
-                );
-            }
-
-            $packages[] = $foundPackages[0];
-        }
-
-        return $packages;
     }
 }
