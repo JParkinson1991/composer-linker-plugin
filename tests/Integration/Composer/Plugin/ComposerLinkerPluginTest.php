@@ -541,7 +541,7 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
                             self::TEST_PACKAGE_NAME => 'linked-package'
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                         ]
                     ]
                 ],
@@ -593,7 +593,7 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
                                     'src/Class.php'
                                 ],
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                                 ]
                             ]
                         ]
@@ -630,7 +630,7 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
                                     ]
                                 ],
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                                 ]
                             ]
                         ]

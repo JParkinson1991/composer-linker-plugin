@@ -28,7 +28,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logEmergency($message, array $context = [])
+    protected function logEmergency($message, array $context = []): void
     {
         $this->doLog(LogLevel::EMERGENCY, $message, $context);
     }
@@ -44,7 +44,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logAlert($message, array $context = [])
+    protected function logAlert($message, array $context = []): void
     {
         $this->doLog(LogLevel::ALERT, $message, $context);
     }
@@ -59,7 +59,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logCritical($message, array $context = [])
+    protected function logCritical($message, array $context = []): void
     {
         $this->doLog(LogLevel::CRITICAL, $message, $context);
     }
@@ -73,7 +73,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logError($message, array $context = [])
+    protected function logError($message, array $context = []): void
     {
         $this->doLog(LogLevel::ERROR, $message, $context);
     }
@@ -89,7 +89,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logWarning($message, array $context = [])
+    protected function logWarning($message, array $context = []): void
     {
         $this->doLog(LogLevel::WARNING, $message, $context);
     }
@@ -102,7 +102,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logNotice($message, array $context = [])
+    protected function logNotice($message, array $context = []): void
     {
         $this->doLog(LogLevel::NOTICE, $message, $context);
     }
@@ -117,7 +117,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logInfo($message, array $context = [])
+    protected function logInfo($message, array $context = []): void
     {
         $this->doLog(LogLevel::INFO, $message, $context);
     }
@@ -130,7 +130,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function logDebug($message, array $context = [])
+    protected function logDebug($message, array $context = []): void
     {
         $this->doLog(LogLevel::DEBUG, $message, $context);
     }
@@ -144,7 +144,7 @@ trait LoggerAwareTrait
      *
      * @return void
      */
-    protected function doLog($level, $message, array $context = [])
+    protected function doLog($level, $message, array $context = []): void
     {
         if ($this->logger instanceof LoggerInterface) {
             $this->logger->log($level, $message, $context);

@@ -43,6 +43,12 @@ class PackageExtractor
         }
 
         // throw extraction exceptions for unhandled operations
-        throw new PackageExtractionUnhandledEventOperationException();
+        throw new PackageExtractionUnhandledEventOperationException(sprintf(
+            'Failed to extract package from event. Triggered for operation: %s. Expected operation: %s',
+            ($operation !== null)
+                ? get_class($operation)
+                : 'unknown/null',
+            implode(', ', [InstallOperation::class, UninstallOperation::class, UpdateOperation::class])
+        ));
     }
 }

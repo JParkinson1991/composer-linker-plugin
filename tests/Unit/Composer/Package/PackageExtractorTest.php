@@ -88,10 +88,38 @@ class PackageExtractorTest extends TestCase
         $this->assertSame($package, $this->testPackage);
     }
 
-    public function testItThrowsExceptionOnUnhandledPackageEventOperation()
+    /**
+     * Tests that an exception is thrown if the package event returns a null
+     * operation
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testItThrowsExceptionOnNullPackageEventOperation()
     {
         // Create mock that returns no operation
         $event = $this->createMock(PackageEvent::class);
+
+        $this->expectException(PackageExtractionUnhandledEventOperationException::class);
+        $this->packageExtractor->extractFromEvent($event);
+    }
+
+    /**
+     * Tests that an exception is thrown if the package event returns an
+     * unknown operation
+     *
+     * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testItThrowsExceptionOnUnhandledPackageEventOperation()
+    {
+        // Create mock that returns unknown operation
+        $event = $this->createMock(PackageEvent::class);
+        $event
+            ->method('getOperation')
+            ->willReturn(new \stdClass());
 
         $this->expectException(PackageExtractionUnhandledEventOperationException::class);
         $this->packageExtractor->extractFromEvent($event);
