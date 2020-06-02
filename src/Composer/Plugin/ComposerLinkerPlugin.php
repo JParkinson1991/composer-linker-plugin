@@ -188,7 +188,7 @@ class ComposerLinkerPlugin implements PluginInterface, Capable, EventSubscriberI
      * @param \Composer\Installer\PackageEvent $event
      *
      * @return void
-     * 
+     *
      * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function initPlugin(PackageEvent $event): void
