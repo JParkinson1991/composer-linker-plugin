@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 use Composer\Package\PackageInterface;
+use InvalidArgumentException;
 
 /**
  * Class LinkDefinition
@@ -159,7 +160,7 @@ class LinkDefinition implements LinkDefinitionInterface
         // are different, ie. this is a not a duplicated mapping for the same
         // files, throw the exception
         if (array_key_exists($destination, $this->fileMappings) && $this->fileMappings[$destination] !== $source) {
-            throw new \InvalidArgumentException(sprintf(
+            throw new InvalidArgumentException(sprintf(
                 '%s already defined as a destination for mapping with source %s',
                 $destination,
                 $this->fileMappings[$destination]
