@@ -15,7 +15,6 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\BaseComposerTestCase;
 use RuntimeException;
-use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * Class ComposerLinkPluginTest
@@ -181,19 +180,7 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
 
         // Add extra files into link dir as needed
         // Useful when testing orphan cleanup
-        if (!empty($extraFiles)) {
-            $fileSystem = new Filesystem();
-
-            foreach ($extraFiles as $extraFileStub) {
-                $extraFilePath = $this->getAbsolutePath($extraFileStub);
-
-                if ($fileSystem->exists(dirname($extraFilePath)) === false) {
-                    $fileSystem->mkdir(dirname($extraFilePath));
-                }
-
-                $fileSystem->touch($extraFilePath);
-            }
-        }
+        $this->createFiles($extraFiles);
 
         // Unlink the plugin
         $this->runPlugin('unlink');
@@ -313,14 +300,9 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
         ]);
 
         // Mimick an already existing linked context
-        $fileSystem = new Filesystem();
-        $fileSystem->mkdir([
-            $this->getAbsolutePath('linked-package-one'),
-            $this->getAbsolutePath('linked-package-two')
-        ]);
-        $fileSystem->touch([
-            $this->getAbsolutePath('linked-package-one/file.txt'),
-            $this->getAbsolutePath('linked-package-two/file.txt')
+        $this->createFiles([
+            'linked-package-one/file.txt',
+            'linked-package-two/file.txt'
         ]);
 
         // Assert everything exists as expected

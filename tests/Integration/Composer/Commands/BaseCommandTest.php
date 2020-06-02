@@ -64,6 +64,26 @@ abstract class BaseCommandTest extends BaseComposerTestCase
     }
 
     /**
+     * Runs the command on the command tester
+     *
+     * @param string[] $packageNames
+     *     An array of package name arguments to pass
+     *
+     * @return int
+     */
+    protected function runCommand($packageNames = [])
+    {
+        // Format as expected if needed
+        if (!empty($packageNames)) {
+            $packageNames = [
+                'package-names' => $packageNames
+            ];
+        }
+
+        return $this->commandTester->execute($packageNames);
+    }
+
+    /**
      * Tests that it errors when package not installed.
      *
      * Dont initialise any packages, just run the command, composer will act

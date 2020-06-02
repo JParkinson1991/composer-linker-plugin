@@ -79,7 +79,7 @@ class LinkCommandTest extends BaseCommandTest
             ]
         ]);
 
-        $exitCode = $this->commandTester->execute([]);
+        $exitCode = $this->runCommand();
 
         // Assert command successful
         $this->assertSame(0, $exitCode);
@@ -139,7 +139,7 @@ class LinkCommandTest extends BaseCommandTest
             ]
         ]);
 
-        $exitCode = $this->commandTester->execute([]);
+        $exitCode = $this->runCommand();
 
         // Assert command error
         $this->assertSame(1, $exitCode);
@@ -188,11 +188,9 @@ class LinkCommandTest extends BaseCommandTest
             ]
         ]);
 
-        $exitCode = $this->commandTester->execute([
-            'package-names' => [
-                'package/one',
-                'package/three'
-            ]
+        $exitCode = $this->runCommand([
+            'package/one',
+            'package/three'
         ]);
 
         // Assert command successful
@@ -242,12 +240,10 @@ class LinkCommandTest extends BaseCommandTest
             ]
         ]);
 
-        $exitCode = $this->commandTester->execute([
-            'package-names' => [
-                'uninstalled/package',
-                'package/one',
-                'package/three'
-            ]
+        $exitCode = $this->runCommand([
+            'uninstalled/package',
+            'package/one',
+            'package/two'
         ]);
 
         // Assert command error
