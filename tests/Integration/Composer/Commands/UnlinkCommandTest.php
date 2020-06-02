@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * UnlinkCommandTest.php
+ * UnlinkCommandTestWithDataProvider.php
  */
 
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Commands;
@@ -28,211 +28,290 @@ class UnlinkCommandTest extends BaseCommandTest
     }
 
     /**
-     * Tests that the command unlinks all viable packages within a repository
-     * when run without arguments
+     * @dataProvider commandDataProvider()
+     *
+     * @param array[] $packages
+     *     An array of package definition arrays where each sub array value
+     *     at index =
+     *         0: package name string
+     *         1: package install dir stub string
+     *         2: package file stubs string[]
+     * @param string[] $createFiles
+     *     File stubs to create per test case
+     * @param array $pluginConfig
+     *     The plugin config array
+     * @param array $packageNameArgs
+     *     An array of arguments to pass to the command when executed
+     * @param int $expectedExitCode
+     *     The expected exit code of the command
+     * @param string|null $expectDisplayContains
+     *     Expect command display to contain
+     *     Skip this check by passing null value
+     * @param string[] $expectFileStubNotExist
+     *     Flat array of file stubs to check non-existence of
+     * @param string[] $expectFileStubExists
+     *     Flat array of file stubs to check existence of
      *
      * @return void
      */
-    public function testItUnlinksARepositoryWhenRunWithoutArguments(): void
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            ['file.txt']
-        );
+    public function testCommand(
+        array $packages,
+        array $createFiles,
+        array $pluginConfig,
+        array $packageNameArgs,
+        int $expectedExitCode,
+        ?string $expectDisplayContains,
+        array $expectFileStubNotExist,
+        array $expectFileStubExists
+    ): void {
+        // Process each package definition initialising it and its file
+        foreach ($packages as [$packageName, $packageInstallDir, $packageFiles]) {
+            $this->initialisePackage($packageName, $packageInstallDir, $packageFiles);
+        }
 
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            ['file.txt']
-        );
+        // Create all requires files from path stubs
+        $this->createFiles($createFiles);
 
-        // Create files where they should exist after link
-        $this->createFiles([
-            'linked-package-one/file.txt',
-            'linked-package-two/file.txt'
-        ]);
+        // Set plugin config
+        $this->setPluginConfig($pluginConfig);
 
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => 'linked-package-two'
-                ]
-            ]
-        ]);
+        $exitCode = $this->runCommand($packageNameArgs);
 
-        $exitCode = $this->runCommand();
+        // Check exit code and display as necessary
+        $this->assertSame($expectedExitCode, $exitCode);
+        if ($expectDisplayContains !== null) {
+            $this->assertStringContainsStringIgnoringCase(
+                $expectDisplayContains,
+                $this->commandTester->getDisplay()
+            );
+        }
 
-        // Assert command successful
-        $this->assertSame(0, $exitCode);
+        foreach ($expectFileStubNotExist as $stub) {
+            $this->assertFileStubDoesNotExist($stub);
+        }
 
-        // Assert none of the linked files exist after unlink
-        $this->assertFileStubDoesNotExist('linked-package-one');
-        $this->assertFileStubDoesNotExist('linked-package-one/file.txt');
-        $this->assertFileStubDoesNotExist('linked-package-two');
-        $this->assertFileStubDoesNotExist('linked-package-two/file.txt');
+        foreach ($expectFileStubExists as $stub) {
+            $this->assertFileStubExists($stub);
+        }
     }
 
     /**
-     * Tests repository unlink errors do not break exception and viable
-     * packages within the repository are attempted to be unlinked
+     * Provides data for the command test
      *
-     * @return void
+     * @return array|array[]
+     *     Detailed structure of data provided in test method param statements
      */
-    public function testRepositoryUnlinkErrorDontBreakProcess(): void
+    public function commandDataProvider(): array
     {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            ['file.txt']
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            ['file.txt']
-        );
-
-        // Create files where they should exist after link
-        $this->createFiles([
-            'linked-package-one/file.txt',
-            'linked-package-two/file.txt'
-        ]);
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => [
-                        'invalid config'
-                    ]
-                ]
-            ]
-        ]);
-
-        $exitCode = $this->runCommand();
-
-        // Assert command error
-        $this->assertSame(1, $exitCode);
-        $this->assertStringContainsStringIgnoringCase(
-            'process completed with errors',
-            $this->commandTester->getDisplay()
-        );
-
-        $this->assertFileStubDoesNotExist('linked-package-one');
-        $this->assertFileStubDoesNotExist('linked-package-one/file.txt');
-        $this->assertFileStubExists('linked-package-two');
-        $this->assertFileStubExists('linked-package-two/file.txt');
-    }
-
-    /**
-     * Tests packages are unlinked when passed as arguments by name
-     *
-     * @return void
-     */
-    public function testItUnlinksPackagesPassedAsArguments()
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            ['file.txt']
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            ['file.txt']
-        );
-
-        // Create files where they should exist after link
-        $this->createFiles([
-            'linked-package-one/file.txt',
-            'linked-package-two/file.txt'
-        ]);
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => 'linked-package-two'
-                ]
-            ]
-        ]);
-
-        $exitCode = $this->runCommand([
-            'package/one',
-            'package/two'
-        ]);
-
-        // Assert command successful
-        $this->assertSame(0, $exitCode);
-
-        $this->assertFileStubDoesNotExist('linked-package-one');
-        $this->assertFileStubDoesNotExist('linked-package-one/file.txt');
-        $this->assertFileStubDoesNotExist('linked-package-two');
-        $this->assertFileStubDoesNotExist('linked-package-two/file.txt');
-    }
-
-    /**
-     * Tests that errors do not break execution when unlinking packages via
-     * arguments
-     *
-     * @return void
-     */
-    public function testPackageUnlinkErrorsDoNotBreakExecution()
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            ['file.txt']
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            ['file.txt']
-        );
-
-        // Create files where they should exist after link
-        $this->createFiles([
-            'linked-package-one/file.txt',
-            'linked-package-two/file.txt'
-        ]);
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-one',
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'not a bool'
+        return [
+            'unlink repository - no args' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    [
+                        'package/one',
+                        'package-one',
+                        [
+                            'file.txt'
                         ]
                     ],
-                    'package/two' => 'linked-package-two'
+                    [
+                        'package/two',
+                        'package-two',
+                        [
+                            'file.txt'
+                        ]
+                    ]
+                ],
+                [
+                    // Create files
+                    'linked-package-one/file.txt',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => 'linked-package-two'
+                        ]
+                    ]
+                ],
+                [
+                    // no package name args
+                ],
+                0, // exit code
+                'process completed', // command out,
+                [
+                    // stub not exist
+                    'linked-package-one',
+                    'linked-package-one/file.txt',
+                    'linked-package-two',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // dont check for files to exist
+                ]
+            ],
+            'unlink repository - skip errors' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    [
+                        'package/one',
+                        'package-one',
+                        [
+                            'file.txt'
+                        ]
+                    ],
+                    [
+                        'package/two',
+                        'package-two',
+                        [
+                            'file.txt'
+                        ]
+                    ]
+                ],
+                [
+                    // Create files
+                    'linked-package-one/file.txt',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => [
+                                'invalid config'
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    // no command args
+                ],
+                1, // exit code
+                'process completed with errors', // command output,
+                [
+                    // check files not exist
+                    'linked-package-one',
+                    'linked-package-one/file.txt'
+                ],
+                [
+                    // Check files do exist
+                    'linked-package-two',
+                    'linked-package-two/file.txt'
+                ]
+            ],
+            'unlink packages - with args' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    [
+                        'package/one',
+                        'package-one',
+                        [
+                            'file.txt'
+                        ]
+                    ],
+                    [
+                        'package/two',
+                        'package-two',
+                        [
+                            'file.txt'
+                        ]
+                    ]
+                ],
+                [
+                    // Create files
+                    'linked-package-one/file.txt',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => 'linked-package-two'
+                        ]
+                    ]
+                ],
+                [
+                    // Command args
+                    'package/one',
+                    'package/two'
+                ],
+                0, // Exit code
+                'process completed', // Command output
+                [
+                    // Expect not exist
+                    'linked-package-one',
+                    'linked-package-one/file.txt',
+                    'linked-package-two',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Dont expect any files to exist
+                ]
+            ],
+            'unlink packages - with args - skip errors' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    [
+                        'package/one',
+                        'package-one',
+                        [
+                            'file.txt'
+                        ]
+                    ],
+                    [
+                        'package/two',
+                        'package-two',
+                        [
+                            'file.txt'
+                        ]
+                    ]
+                ],
+                [
+                    // Create files
+                    'linked-package-one/file.txt',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-one',
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => 'not a bool'
+                                ]
+                            ],
+                            'package/two' => 'linked-package-two'
+                        ]
+                    ]
+                ],
+                [
+                    // Command args
+                    'uninstalled/package',
+                    'package/one',
+                    'package/two'
+                ],
+                1, // Exit code
+                'process completed with errors', // Command output
+                [
+                    // Expect not exists
+                    'linked-package-two',
+                    'linked-package-two/file.txt'
+                ],
+                [
+                    // Expect exist
+                    'linked-package-one',
+                    'linked-package-one/file.txt'
                 ]
             ]
-        ]);
-
-        $exitCode = $this->runCommand([
-            'uninstalled/package',
-            'package/one',
-            'package/two'
-        ]);
-
-        // Assert command error
-        $this->assertSame(1, $exitCode);
-        $this->assertStringContainsStringIgnoringCase(
-            'process completed with errors',
-            $this->commandTester->getDisplay()
-        );
-
-        // Assert package two removed as expected
-        $this->assertFileStubDoesNotExist('linked-package-two');
-        $this->assertFileStubDoesNotExist('linked-package-two/file.txt');
-
-        // Assert package one still exists as not valid
-        $this->assertFileStubExists('linked-package-one');
-        $this->assertFileStubExists('linked-package-one/file.txt');
+        ];
     }
 }
