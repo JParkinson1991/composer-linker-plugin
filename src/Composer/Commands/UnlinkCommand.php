@@ -76,5 +76,4 @@ class UnlinkCommand extends AbstractPluginCommand
     {
         $linkExecutor->unlinkRepository($repository);
     }
-
 }

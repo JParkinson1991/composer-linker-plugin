@@ -71,5 +71,4 @@ class LinkCommand extends AbstractPluginCommand
     {
         $linkExecutor->linkRepository($repository);
     }
-
 }

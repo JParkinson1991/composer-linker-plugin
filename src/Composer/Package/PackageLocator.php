@@ -49,5 +49,4 @@ class PackageLocator implements PackageLocatorInterface
 
         return $foundPackages[0];
     }
-
 }
