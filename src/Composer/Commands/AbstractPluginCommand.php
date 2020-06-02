@@ -12,7 +12,7 @@ use Composer\IO\ConsoleIO;
 use Composer\Package\PackageInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Util\Filesystem as ComposerFilesystem;
-use InvalidArgumentException;
+use Exception;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface;
 use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorException;
 use JParkinson1991\ComposerLinkerPlugin\Exception\LinkExecutorExceptionCollection;
@@ -20,7 +20,6 @@ use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
 use JParkinson1991\ComposerLinkerPlugin\Log\SimpleIoLogger;
-use RuntimeException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -120,7 +119,7 @@ abstract class AbstractPluginCommand extends BaseCommand
      *
      * @throws \Exception
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Get compose, ensure it could be loaded
         $composer = $this->getComposer(true);
@@ -198,6 +197,8 @@ abstract class AbstractPluginCommand extends BaseCommand
      *
      * @param string[] $packageNames
      *     The packages to process
+     * @param RepositoryInterface $repository
+     *     Where to load packages from
      * @param \JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor $linkExecutor
      *     The link executor
      * @param \Symfony\Component\Console\Output\OutputInterface $output
@@ -221,7 +222,7 @@ abstract class AbstractPluginCommand extends BaseCommand
                 $package = $this->packageLocator->getFromRepository($packageName, $repository);
                 $this->doExecutePackage($linkExecutor, $package);
             }
-            catch (\Exception $e) {
+            catch (Exception $e) {
                 $output->writeln(sprintf(
                     '<error>Error</error> %s',
                     ($e instanceof LinkExecutorException)
