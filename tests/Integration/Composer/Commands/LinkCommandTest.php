@@ -85,19 +85,19 @@ class LinkCommandTest extends BaseCommandTest
         $this->assertSame(0, $exitCode);
 
         // Assert package one link existing
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one'));
-        $this->assertTrue(is_link($this->getAbsolutePath('linked-package-one')));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one/README.md'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one/src/Class1.php'));
+        $this->assertFileStubExists('linked-package-one');
+        $this->assertFileStubIsSymlink('linked-package-one');
+        $this->assertFileStubExists('linked-package-one/README.md');
+        $this->assertFileStubExists('linked-package-one/src/Class1.php');
 
         // Asset package two link existing
-        $this->assertFileExists($this->getAbsolutePath('linked-package-two'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-two/src/Class2.php'));
-        $this->assertFalse(is_link($this->getAbsolutePath('linked-package-two/src/Class2.php')));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-two/README.md'));
+        $this->assertFileStubExists('linked-package-two');
+        $this->assertFileStubExists('linked-package-two/src/Class2.php');
+        $this->assertFileStubIsNotSymlink('linked-package-two/src/Class2.php');
+        $this->assertFileStubDoesNotExist('linked-package-two/README.md');
 
         // Assert package three not linked
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-three'));
+        $this->assertFileStubDoesNotExist('linked-package-three');
     }
 
     /**
@@ -149,8 +149,8 @@ class LinkCommandTest extends BaseCommandTest
         );
 
         // Assert valid packages linked
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-three'));
+        $this->assertFileStubExists('linked-package-one');
+        $this->assertFileStubExists('linked-package-three');
     }
 
     /**
@@ -197,14 +197,14 @@ class LinkCommandTest extends BaseCommandTest
         $this->assertSame(0, $exitCode);
 
         // Assert package one files exist
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one'));
+        $this->assertFileStubExists('linked-package-one');
 
         // Assert package two files dont exist despite plugin config existing
         // Command when given arguments should only link those files
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-two'));
+        $this->assertFileStubDoesNotExist('linked-package-two');
 
         // Assert package three files exist
-        $this->assertFileExists($this->getAbsolutePath('linked-package-three'));
+        $this->assertFileStubExists('linked-package-three');
     }
 
     /**
@@ -254,6 +254,6 @@ class LinkCommandTest extends BaseCommandTest
         );
 
         // Assert valid package linked
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one'));
+        $this->assertFileStubExists('linked-package-one');
     }
 }

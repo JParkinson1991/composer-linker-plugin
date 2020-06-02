@@ -42,16 +42,6 @@ class BaseComposerTestCase extends TestCase
     private $dirProjectRoot;
 
     /**
-     * The path to the vendor directory
-     *
-     * All vendor files wil sit under this dir, this director sits under the
-     * $dirProjectRoot
-     *
-     * @var string
-     */
-    private $dirVendor;
-
-    /**
      * Contains an array of package names mapped to install directories
      *
      * Used in the installation manager mock, to return test package dirs and
@@ -90,6 +80,16 @@ class BaseComposerTestCase extends TestCase
     private $pluginConfig = [];
 
     /**
+     * The path to the vendor directory
+     *
+     * All vendor files wil sit under this dir, this director sits under the
+     * $dirProjectRoot
+     *
+     * @var string
+     */
+    protected $vendorDirectory;
+
+    /**
      * Sets up this class prior to execution of a test case
      *
      * @return void
@@ -102,7 +102,7 @@ class BaseComposerTestCase extends TestCase
         );
 
         // Determine vendor dir
-        $this->dirVendor = $this->dirProjectRoot.'/vendor';
+        $this->vendorDirectory = $this->dirProjectRoot.'/vendor';
 
         // Left over project root path, delete it
         if (file_exists($this->dirProjectRoot)) {
@@ -113,7 +113,7 @@ class BaseComposerTestCase extends TestCase
         $fileSystem = new Filesystem();
         $fileSystem->mkdir([
             $this->dirProjectRoot,
-            $this->dirVendor
+            $this->vendorDirectory
         ]);
 
         // Prepare the mocks, start with the config class, have it return
@@ -122,7 +122,7 @@ class BaseComposerTestCase extends TestCase
         $config
             ->method('get')
             ->with('vendor-dir')
-            ->willReturn($this->dirVendor);
+            ->willReturn($this->vendorDirectory);
 
         // Create an installation manager that can be used to identify and
         // return tested package mocks
@@ -244,6 +244,42 @@ class BaseComposerTestCase extends TestCase
     }
 
     /**
+     * Assertation wrapped allowing determination of symlink for file file
+     * path stubs.
+     *
+     * Stubs will be resolved using internal absolute path resolution.
+     *
+     * @see getAbsolutePath()
+     *
+     * @param string $filePathStub
+     * @param string|null $resolvedFrom
+     *
+     * @return void
+     */
+    protected function assertFileStubIsSymlink(string $filePathStub, string $resolvedFrom = null): void
+    {
+        $this->assertTrue(is_link($this->getAbsolutePath($filePathStub, $resolvedFrom)));
+    }
+
+    /**
+     * Assertation wrapped allowing determination of not being a symlink for
+     * file path stubs.
+     *
+     * Stubs will be resolved using internal absolute path resolution.
+     *
+     * @see getAbsolutePath()
+     *
+     * @param string $filePathStub
+     * @param string|null $resolvedFrom
+     *
+     * @return void
+     */
+    protected function assertFileStubIsNotSymlink(string $filePathStub, string $resolvedFrom = null): void
+    {
+        $this->assertFalse(is_link($this->getAbsolutePath($filePathStub, $resolvedFrom)));
+    }
+
+    /**
      * Creates files from stubs
      *
      * @param array $filePathStubs
@@ -285,18 +321,6 @@ class BaseComposerTestCase extends TestCase
     }
 
     /**
-     * Returns an absolute path from the vendor dir
-     *
-     * @param string $pathStub
-     *
-     * @return string
-     */
-    protected function getAbsolutePathVendor(string $pathStub): string
-    {
-        return $this->getAbsolutePath($pathStub, $this->dirVendor);
-    }
-
-    /**
      * Returns the mock composer instance
      *
      * @return \Composer\Composer|\PHPUnit\Framework\MockObject\MockObject
@@ -334,7 +358,7 @@ class BaseComposerTestCase extends TestCase
 
         // Create the files for the package
         $fileSystem = new Filesystem();
-        $installPath = $this->getAbsolutePath($installPath, $this->dirVendor);
+        $installPath = $this->getAbsolutePath($installPath, $this->vendorDirectory);
         $fileSystem->mkdir($installPath);
         $this->createFiles($files, $installPath);
 

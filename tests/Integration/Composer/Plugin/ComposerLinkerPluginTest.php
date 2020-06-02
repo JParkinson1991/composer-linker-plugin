@@ -114,8 +114,13 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
 
             // Assert linked dir exists
             // Assert is as $expectSymlink
-            $this->assertFileExists($this->getAbsolutePath($destinationDir));
-            $this->assertSame($usesSymlink, is_link($this->getAbsolutePath($destinationDir)));
+            $this->assertFileStubExists($destinationDir);
+            if ($usesSymlink) {
+                $this->assertFileStubIsSymlink($destinationDir);
+            }
+            else {
+                $this->assertFileStubIsNotSymlink($destinationDir);
+            }
 
             // Dont check symlink status against files
             $checkFileLinks = false;
@@ -129,16 +134,21 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
 
         // Ensure every expected file exists
         foreach ($expectFileExists as $expectedFileStub) {
-            $this->assertFileExists($this->getAbsolutePath($expectedFileStub));
+            $this->assertFileStubExists($expectedFileStub);
 
             if ($checkFileLinks === true) {
-                $this->assertSame($usesSymlink, is_link($this->getAbsolutePath($expectedFileStub)));
+                if ($usesSymlink) {
+                    $this->assertFileStubIsSymlink($expectedFileStub);
+                }
+                else {
+                    $this->assertFileStubIsNotSymlink($expectedFileStub);
+                }
             }
         }
 
         // Ensure every expected file does not exist
         foreach ($expectFileNotExists as $notExpectedFileStub) {
-            $this->assertFileDoesNotExist($this->getAbsolutePath($notExpectedFileStub));
+            $this->assertFileStubDoesNotExist($notExpectedFileStub);
         }
     }
 
@@ -187,12 +197,12 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
 
         // Check all of the expected non existent files do not exist
         foreach ($expectFileNotExists as $expectFileNotExistStub) {
-            $this->assertFileDoesNotExist($this->getAbsolutePath($expectFileNotExistStub));
+            $this->assertFileStubDoesNotExist($expectFileNotExistStub);
         }
 
         // Check all of the expected existing files still exists.
         foreach ($expectFileExists as $expectedFileExistsStub) {
-            $this->assertFileExists($this->getAbsolutePath($expectedFileExistsStub));
+            $this->assertFileStubExists($expectedFileExistsStub);
         }
     }
 
@@ -245,21 +255,21 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
         $this->runPlugin('init', $pluginPackage);
 
         // Expect all standard $this->package files to exist in linked dir
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package'));
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package/README.md'));
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package/src'));
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package/src/Class.php'));
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package/src/Services'));
-        $this->assertFileExists($this->getAbsolutePath('linked-test-package/src/Services/Service.php'));
+        $this->assertFileStubExists('linked-test-package');
+        $this->assertFileStubExists('linked-test-package/README.md');
+        $this->assertFileStubExists('linked-test-package/src');
+        $this->assertFileStubExists('linked-test-package/src/Class.php');
+        $this->assertFileStubExists('linked-test-package/src/Services');
+        $this->assertFileStubExists('linked-test-package/src/Services/Service.php');
 
         // Expect only the one file existed with new name for $anotherTestPackage
-        $this->assertFileExists($this->getAbsolutePath('linked-another-test'));
-        $this->assertFileExists($this->getAbsolutePath('linked-another-test/linked-file1.txt'));
+        $this->assertFileStubExists('linked-another-test');
+        $this->assertFileStubExists('linked-another-test/linked-file1.txt');
 
         // Ensure standard files not carried over for $anotherTestPackage
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-another-test/src'));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-another-test/src/file1.txt'));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-another-test/src/file2.txt'));
+        $this->assertFileStubDoesNotExist('linked-another-test/src');
+        $this->assertFileStubDoesNotExist('linked-another-test/src/file1.txt');
+        $this->assertFileStubDoesNotExist('linked-another-test/src/file2.txt');
     }
 
     /**
@@ -306,14 +316,14 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
         ]);
 
         // Assert everything exists as expected
-        $this->assertFileExists($this->getAbsolutePathVendor('package-one'));
-        $this->assertFileExists($this->getAbsolutePathVendor('package-one/file.txt'));
-        $this->assertFileExists($this->getAbsolutePathVendor('package-two'));
-        $this->assertFileExists($this->getAbsolutePathVendor('package-two/file.txt'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-one/file.txt'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-two'));
-        $this->assertFileExists($this->getAbsolutePath('linked-package-two/file.txt'));
+        $this->assertFileStubExists('package-one', $this->vendorDirectory);
+        $this->assertFileStubExists('package-one/file.txt', $this->vendorDirectory);
+        $this->assertFileStubExists('package-two', $this->vendorDirectory);
+        $this->assertFileStubExists('package-two/file.txt', $this->vendorDirectory);
+        $this->assertFileStubExists('linked-package-one');
+        $this->assertFileStubExists('linked-package-one/file.txt');
+        $this->assertFileStubExists('linked-package-two');
+        $this->assertFileStubExists('linked-package-two/file.txt');
 
         // Create a mock package for the plugin
         $pluginPackage = $this->createMock(PackageInterface::class);
@@ -325,10 +335,10 @@ class ComposerLinkerPluginTest extends BaseComposerTestCase
         $this->runPlugin('cleanup', $pluginPackage);
 
         // Ensure non of the linked files exist anymore
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-one'));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-one/file.txt'));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-two'));
-        $this->assertFileDoesNotExist($this->getAbsolutePath('linked-package-two/file.txt'));
+        $this->assertFileStubDoesNotExist('linked-package-one');
+        $this->assertFileStubDoesNotExist('linked-package-one/file.txt');
+        $this->assertFileStubDoesNotExist('linked-package-two');
+        $this->assertFileStubDoesNotExist('linked-package-two/file.txt');
     }
 
     /**
