@@ -20,6 +20,7 @@ use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
 use JParkinson1991\ComposerLinkerPlugin\Log\SimpleIoLogger;
+use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -136,7 +137,7 @@ abstract class AbstractPluginCommand extends BaseCommand
         $packageNames = $input->getArgument('package-names');
 
         // If no package names provided, execute against the full repository
-        if (!empty($packageNames)) {
+        if (is_array($packageNames) && !empty($packageNames)) {
             return $this->executePackages(
                 $packageNames,
                 $repository,
@@ -274,7 +275,7 @@ abstract class AbstractPluginCommand extends BaseCommand
         $linkFileHandler->setLogger(new SimpleIoLogger(new ConsoleIO(
             $input,
             $output,
-            $this->getHelperSet()
+            $this->getHelperSet() ?? new HelperSet()
         )));
 
         return new LinkExecutor($linkDefinitionFactory, $linkFileHandler);
