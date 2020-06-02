@@ -7,6 +7,7 @@
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Commands;
 
 use Composer\Composer;
+use Composer\Config;
 use Composer\Installer\InstallationManager;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
@@ -416,40 +417,6 @@ class AbstractPluginCommandTest extends TestCase
 
         // Expect all three package arguments were attempted to be processed
         $this->assertSame(3, $this->getCountDoExecutePackage());
-    }
-
-    /**
-     * Tests that the abstract command correctly creates a link executor
-     *
-     * @return void
-     *
-     * @throws \ReflectionException
-     */
-    public function testItCreatesALinkExecutor(): void
-    {
-        $composer = $this->createMock(Composer::class);
-        $composer
-            ->method('getPackage')
-            ->willReturn($this->createMock(RootPackageInterface::class));
-        $composer
-            ->method('getInstallationManager')
-            ->willReturn($this->createMock(InstallationManager::class));
-
-        $this->setTestableInstanceComposerMock($composer);
-        $this->setTestableInstanceLinkExecutorMock(null); // Set to null so parent created
-
-        $input = $this->createMock(InputInterface::class);
-        $output = $this->createMock(OutputInterface::class);
-
-        $linkExecutor = $this->callObjectMethod(
-            $this->instance,
-            'createLinkExecutor',
-            $composer,
-            $input,
-            $output
-        );
-
-        $this->assertInstanceOf(LinkExecutor::class, $linkExecutor);
     }
 
     /**
