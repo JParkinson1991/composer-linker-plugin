@@ -43,6 +43,8 @@ class PackageExtractor
         }
 
         // throw extraction exceptions for unhandled operations
-        throw new PackageExtractionUnhandledEventOperationException();
+        throw new PackageExtractionUnhandledEventOperationException(
+            'Failed to extract package from event. Trigger for operation: '.get_class($operation)
+        );
     }
 }
