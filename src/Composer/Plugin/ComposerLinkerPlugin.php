@@ -11,8 +11,11 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
+use Composer\Plugin\Capability\CommandProvider;
+use Composer\Plugin\Capable;
 use Composer\Plugin\PluginInterface;
 use Composer\Util\Filesystem as ComposerFileSystem;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\ComposerLinkerPluginCommandProvider;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Exception\ConfigNotFoundException;
@@ -31,7 +34,7 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Composer\Plugin
  */
-class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
+class ComposerLinkerPlugin implements PluginInterface, Capable, EventSubscriberInterface
 {
 
     /**
@@ -71,6 +74,16 @@ class ComposerLinkerPlugin implements PluginInterface, EventSubscriberInterface
             $linkDefinitionFactory,
             $linkFileHandler
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCapabilities()
+    {
+        return [
+            CommandProvider::class => ComposerLinkerPluginCommandProvider::class
+        ];
     }
 
     /**

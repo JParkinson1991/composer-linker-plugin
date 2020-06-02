@@ -16,9 +16,12 @@ use Composer\IO\IOInterface;
 use Composer\Package\Package;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
+use Composer\Plugin\Capability\CommandProvider;
+use Composer\Plugin\Capable;
 use Composer\Repository\RepositoryInterface;
 use Composer\Repository\RepositoryManager;
 use Exception;
+use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\ComposerLinkerPluginCommandProvider;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractor;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
@@ -142,6 +145,24 @@ class ComposerLinkerPluginTest extends TestCase
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UPDATE, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::PRE_PACKAGE_UNINSTALL, $subscribedEvents);
         $this->assertArrayHasKey(PackageEvents::POST_PACKAGE_UNINSTALL, $subscribedEvents);
+    }
+
+    /**
+     * Tests that the plugin has command providing capabilities
+     *
+     * @return void
+     */
+    public function testItProvidesCommands(): void
+    {
+        $plugin = new ComposerLinkerPlugin();
+
+        $this->assertInstanceOf(Capable::class, $plugin);
+
+        $this->assertArrayHasKey(CommandProvider::class, $plugin->getCapabilities());
+        $this->assertSame(
+            ComposerLinkerPluginCommandProvider::class,
+            $plugin->getCapabilities()[CommandProvider::class]
+        );
     }
 
     /**
@@ -391,8 +412,6 @@ class ComposerLinkerPluginTest extends TestCase
      * installed that is not this plugin.
      *
      * @return void
-     *
-     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testPluginInitIgnoredIfPluginNotUninstalled(): void
     {

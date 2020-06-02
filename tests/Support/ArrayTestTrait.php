@@ -32,4 +32,30 @@ trait ArrayTestTrait
             }
         }
     }
+
+    /**
+     * Asserts that an array contains an instance of the given class name
+     *
+     * @param string $expected
+     *     The name of the class/interface to check for
+     * @param array $array
+     *     An array that may can on object of $expected type
+     *
+     * @return void
+     */
+    protected function assertArrayContainsInstanceOf(string $expected, array $array)
+    {
+        $countMatch = 0;
+        foreach ($array as $object) {
+            if (!is_object($object)) {
+                continue;
+            }
+
+            if (is_a($object, $expected)) {
+                $countMatch++;
+            }
+        }
+
+        $this->assertGreaterThan(0, $countMatch, 'Failed to find '.$expected.' in array');
+    }
 }
