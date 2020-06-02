@@ -4,6 +4,8 @@
  * LinkFileHandlerInterface.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 /**

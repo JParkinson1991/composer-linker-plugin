@@ -4,6 +4,8 @@
  * SimpleIoLoggerTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Log;
 
 use Composer\IO\IOInterface;

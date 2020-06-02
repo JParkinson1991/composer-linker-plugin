@@ -4,6 +4,8 @@
  * LinkProviderTestWithDataProvider.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Commands;
 
 use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\LinkCommand;

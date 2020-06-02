@@ -4,6 +4,8 @@
  * ComposerLinkPluginTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin;
 
 use Composer\DependencyResolver\Operation\InstallOperation;

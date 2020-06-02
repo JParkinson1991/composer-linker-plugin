@@ -4,6 +4,8 @@
  * PackageLocator.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Package;
 
 use Composer\Package\PackageInterface;

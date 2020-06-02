@@ -4,6 +4,8 @@
  * ComposerLinkerPluginCommandProviderTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Commands;
 
 use JParkinson1991\ComposerLinkerPlugin\Composer\Commands\ComposerLinkerPluginCommandProvider;
