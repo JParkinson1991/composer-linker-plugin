@@ -10,7 +10,6 @@ namespace JParkinson1991\ComposerLinkerPlugin\Composer\Commands;
 
 use Composer\Plugin\Capability\CommandProvider;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocator;
-use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocatorInterface;
 
 /**
  * Class ComposerLinkerPluginCommandProvider
