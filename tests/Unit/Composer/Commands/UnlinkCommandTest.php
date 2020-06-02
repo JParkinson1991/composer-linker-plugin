@@ -4,6 +4,8 @@
  * UnlinkCommandTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Commands;
 
 use Composer\Composer;

@@ -4,6 +4,8 @@
  * PackageExtractor.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Package;
 
 use Composer\DependencyResolver\Operation\InstallOperation;

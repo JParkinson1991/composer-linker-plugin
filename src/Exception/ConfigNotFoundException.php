@@ -4,6 +4,8 @@
  * ConfigNotFoundException.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Exception;
 
 use Composer\Package\PackageInterface;

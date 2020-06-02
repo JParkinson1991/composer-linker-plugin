@@ -4,6 +4,8 @@
  * LinkExecutorExceptionTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Exception;
 
 use Composer\Package\PackageInterface;

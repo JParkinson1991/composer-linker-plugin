@@ -4,6 +4,8 @@
  * UnlinkCommand.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Commands;
 
 use Composer\Package\PackageInterface;

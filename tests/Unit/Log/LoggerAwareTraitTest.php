@@ -4,6 +4,8 @@
  * LoggerAwareTraitTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Log;
 
 use JParkinson1991\ComposerLinkerPlugin\Log\LoggerAwareTrait;
