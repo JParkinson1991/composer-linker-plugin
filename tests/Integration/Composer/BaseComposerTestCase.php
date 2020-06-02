@@ -208,6 +208,67 @@ class BaseComposerTestCase extends TestCase
     }
 
     /**
+     * Assertation wrapper allowing file stubs to be used in file existence
+     * checks.
+     *
+     * Stubs will be resolved using internal absolute path resolution.
+     *
+     * @see getAbsolutePath()
+     *
+     * @param string $filePathStub
+     * @param string|null $resolvedFrom
+     *
+     * @return void
+     */
+    protected function assertFileStubExists(string $filePathStub, string $resolvedFrom = null): void
+    {
+        $this->assertFileExists($this->getAbsolutePath($filePathStub, $resolvedFrom));
+    }
+
+    /**
+     * Assertation wrapper allowing file stubs to be used in file not existing
+     * checks.
+     *
+     * Stubs will be resolved using internal absolute path resolution.
+     *
+     * @see getAbsolutePath()
+     *
+     * @param string $filePathStub
+     * @param string|null $resolvedFrom
+     *
+     * @return void
+     */
+    protected function assertFileStubDoesNotExist(string $filePathStub, string $resolvedFrom = null): void
+    {
+        $this->assertFileDoesNotExist($this->getAbsolutePath($filePathStub, $resolvedFrom));
+    }
+
+    /**
+     * Creates files from stubs
+     *
+     * @param array $filePathStubs
+     *     The stubs
+     * @param string|null $resolvedForm
+     *     Where to resolve stubs from
+     *
+     * @return void
+     */
+    protected function createFiles(array $filePathStubs, string $resolvedForm = null): void
+    {
+        $fileSystem = new Filesystem();
+        foreach ($filePathStubs as $stub) {
+            $filePath = $this->getAbsolutePath($stub, $resolvedForm);
+            $fileDir = dirname($filePath);
+
+            if ($fileSystem->exists($fileDir) === false) {
+                $fileSystem->mkdir($fileDir);
+            }
+
+            $fileSystem->touch($filePath);
+        }
+    }
+
+    /**
      * Returns the absolute representation of a link stub
      *
      * @param string $pathStub
@@ -275,16 +336,7 @@ class BaseComposerTestCase extends TestCase
         $fileSystem = new Filesystem();
         $installPath = $this->getAbsolutePath($installPath, $this->dirVendor);
         $fileSystem->mkdir($installPath);
-        foreach ($files as $file) {
-            $filePath = $this->getAbsolutePath($file, $installPath);
-            $fileDir = dirname($filePath);
-
-            if ($fileSystem->exists($fileDir) === false) {
-                $fileSystem->mkdir($fileDir);
-            }
-
-            $fileSystem->touch($filePath);
-        }
+        $this->createFiles($files, $installPath);
 
         // Store the instance so it is pulled from the composer repositories
         // Use
