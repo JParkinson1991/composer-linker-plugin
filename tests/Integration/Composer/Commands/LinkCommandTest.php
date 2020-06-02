@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * LinkCommandTest.php
+ * LinkProviderTestWithDataProvider.php
  */
 
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Commands;
@@ -11,7 +11,7 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocator;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 
 /**
- * Class LinkCommandTest
+ * Class LinkProviderTestWithDataProvider
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Commands
  */
@@ -28,232 +28,289 @@ class LinkCommandTest extends BaseCommandTest
     }
 
     /**
-     * Tests that the command links all viable packages within a repository
-     * when run without arguments
+     * Tests the execution and outputs of the link command
+     *
+     * @dataProvider commandDataProvider
+     *
+     * @param array[] $packages
+     *     An array of package definition arrays where each sub array value
+     *     at index =
+     *         0: package name string
+     *         1: package install dir stub string
+     *         2: package file stubs string[]
+     * @param array $pluginConfig
+     *     The plugin config array
+     * @param array $packageNameArgs
+     *     An array of arguments to pass to the command when executed
+     * @param int $expectedExitCode
+     *     The expected exit code of the command
+     * @param string|null $expectDisplayContains
+     *     Expect command display to contain
+     *     Skip this check by passing null value
+     * @param string[] $expectStubExists
+     *     Flat array of file stubs to check existence of
+     * @param string[] $expectStubDoesNotExist
+     *     Flat array of file stubs to check non-existence of
+     * @param array $expectStubIsSymlink
+     *     Flat array of file stubs to check if symlink
+     * @param array $expectStubIsNotSymlink
+     *     Flat array of file stubs to check not symlink
      *
      * @return void
      */
-    public function testItLinksARepositoryWhenRunWithoutArguments(): void
+    public function testCommand(
+        array $packages,
+        array $pluginConfig,
+        array $packageNameArgs,
+        int $expectedExitCode,
+        ?string $expectDisplayContains,
+        array $expectStubExists = [],
+        array $expectStubDoesNotExist = [],
+        array $expectStubIsSymlink = [],
+        array $expectStubIsNotSymlink = []
+    ): void {
+        // Process each package definition initialising it and its file
+        foreach ($packages as [$packageName, $packageInstallDir, $packageFiles]) {
+            $this->initialisePackage($packageName, $packageInstallDir, $packageFiles);
+        }
+
+        // Set plugin config
+        $this->setPluginConfig($pluginConfig);
+
+        // Run command with args capturing exit code
+        $exitCode = $this->runCommand($packageNameArgs);
+
+        // Check exit code and display as necessary
+        $this->assertSame($expectedExitCode, $exitCode);
+        if ($expectDisplayContains) {
+            $this->assertStringContainsStringIgnoringCase(
+                $expectDisplayContains,
+                $this->commandTester->getDisplay()
+            );
+        }
+
+        foreach ($expectStubExists as $stub) {
+            $this->assertFileStubExists($stub);
+        }
+
+        foreach ($expectStubDoesNotExist as $stub) {
+            $this->assertFileStubDoesNotExist($stub);
+        }
+
+        foreach ($expectStubIsSymlink as $stub) {
+            $this->assertFileStubIsSymlink($stub);
+        }
+
+        foreach ($expectStubIsNotSymlink as $stub) {
+            $this->assertFileStubIsNotSymlink($stub);
+        }
+    }
+
+    /**
+     * Provides data for the command test
+     *
+     * @return array|array[]
+     *     Detailed structure of data provided in test method param statements
+     */
+    public function commandDataProvider(): array
     {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            [
-                'README.md',
-                'src/Class1.php'
-            ]
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            [
-                'README.md',
-                'src/Class2.php'
-            ]
-        );
-
-        $this->initialisePackage(
-            'package/three',
-            'package-three',
-            [
-                'README.md',
-                'src/Class3.php'
-            ]
-        );
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => [
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-two',
-                        LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+        return [
+            'link repository - no args' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    [
+                        'package/one',
+                        'package-one',
+                        [
+                            'README.md',
+                            'src/Class1.php'
+                        ]
+                    ],
+                    [
+                        'package/two',
+                        'package-two',
+                        [
+                            'README.md',
                             'src/Class2.php'
-                        ],
-                        LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
+                        ]
+                    ],
+                    [
+                        'package/three',
+                        'package-three',
+                        [
+                            'README.md',
+                            'src/Class3.php'
                         ]
                     ]
-                ]
-            ]
-        ]);
-
-        $exitCode = $this->runCommand();
-
-        // Assert command successful
-        $this->assertSame(0, $exitCode);
-
-        // Assert package one link existing
-        $this->assertFileStubExists('linked-package-one');
-        $this->assertFileStubIsSymlink('linked-package-one');
-        $this->assertFileStubExists('linked-package-one/README.md');
-        $this->assertFileStubExists('linked-package-one/src/Class1.php');
-
-        // Asset package two link existing
-        $this->assertFileStubExists('linked-package-two');
-        $this->assertFileStubExists('linked-package-two/src/Class2.php');
-        $this->assertFileStubIsNotSymlink('linked-package-two/src/Class2.php');
-        $this->assertFileStubDoesNotExist('linked-package-two/README.md');
-
-        // Assert package three not linked
-        $this->assertFileStubDoesNotExist('linked-package-three');
-    }
-
-    /**
-     * Tests that when the command is run without arguments thus linking the
-     * entire repository that errors do not break execution, but are still
-     * handled and sent to the caller
-     *
-     * @return void
-     */
-    public function testRepositoryLinkErrorsDontBreakProcessButOutputAfter(): void
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            []
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            []
-        );
-
-        $this->initialisePackage(
-            'package/three',
-            'package-three',
-            []
-        );
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => [
-                        'invalid-config' => 'here'
-                    ],
-                    'package/three' => 'linked-package-three'
-                ]
-            ]
-        ]);
-
-        $exitCode = $this->runCommand();
-
-        // Assert command error
-        $this->assertSame(1, $exitCode);
-        $this->assertStringContainsStringIgnoringCase(
-            'process completed with errors',
-            $this->commandTester->getDisplay()
-        );
-
-        // Assert valid packages linked
-        $this->assertFileStubExists('linked-package-one');
-        $this->assertFileStubExists('linked-package-three');
-    }
-
-    /**
-     * Tests that packages passed as arguments by name
-     *
-     * @return void
-     */
-    public function testItLinksPackagesPassedAsArguments(): void
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            []
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            []
-        );
-
-        $this->initialisePackage(
-            'package/three',
-            'package-three',
-            []
-        );
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => 'linked-package-two',
-                    'package/three' => 'linked-package-three'
-                ]
-            ]
-        ]);
-
-        $exitCode = $this->runCommand([
-            'package/one',
-            'package/three'
-        ]);
-
-        // Assert command successful
-        $this->assertSame(0, $exitCode);
-
-        // Assert package one files exist
-        $this->assertFileStubExists('linked-package-one');
-
-        // Assert package two files dont exist despite plugin config existing
-        // Command when given arguments should only link those files
-        $this->assertFileStubDoesNotExist('linked-package-two');
-
-        // Assert package three files exist
-        $this->assertFileStubExists('linked-package-three');
-    }
-
-    /**
-     * Test that package link error do not break execution.
-     *
-     * If multiple arguments are passed and some trigger errors still attempt
-     * to process the valid arguments.
-     *
-     * @void
-     */
-    public function testPackageLinkErrorsDontBreakExecution(): void
-    {
-        $this->initialisePackage(
-            'package/one',
-            'package-one',
-            []
-        );
-
-        $this->initialisePackage(
-            'package/two',
-            'package-two',
-            []
-        );
-
-        $this->setPluginConfig([
-            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
-                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
-                    'package/one' => 'linked-package-one',
-                    'package/two' => [
-                        'invalid-config'
+                ],
+                [
+                    // Plugin configuration
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => [
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-two',
+                                LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                                    'src/Class2.php'
+                                ],
+                                LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true
+                                ]
+                            ]
+                        ]
                     ]
+                ],
+                [
+                    // No package name arguments
+                ],
+                0, // Expected exit code
+                'process completed', // Expect output contains
+                [
+                    // Expect file stubs exist
+                    'linked-package-one',
+                    'linked-package-one/README.md',
+                    'linked-package-one/src/Class1.php',
+                    'linked-package-two',
+                    'linked-package-two/src/Class2.php'
+                ],
+                [
+                    // Expect file stubs dont exist
+                    'linked-package-two/README.md',
+                    'linked-package-three',
+                    'linked-package-three/README.md',
+                    'linked-package-three/src/Class3.php'
+                ],
+                [
+                    // Expect symlinks
+                    'linked-package-one'
+                ],
+                [
+                    //Expect not symlinks
+                    'linked-package-two/src/Class2.ph'
+                ]
+            ],
+            'link repository - has skippable errors' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    ['package/one', 'package-one', []],
+                    ['package/two', 'package-two', []],
+                    ['package/three', 'package-three', []]
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => [
+                                'invalid-config' => 'here'
+                            ],
+                            'package/three' => 'linked-package-three'
+                        ]
+                    ]
+                ],
+                [
+                    // No package name arguments
+                ],
+                1, // Expected exit code
+                'process completed with errors', // Expect output contains,
+                [
+                    // Expect file stubs exist
+                    'linked-package-one',
+                    'linked-package-three'
+                ],
+                [
+                    // Dont check for files not to exist
+                ],
+                [
+                    // Dont check for symlinks
+                ],
+                [
+                    //Dont check non symlinks
+                ]
+            ],
+            'link packages - with arguments' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    ['package/one', 'package-one', []],
+                    ['package/two', 'package-two', []],
+                    ['package/three', 'package-three', []]
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => 'linked-package-two',
+                            'package/three' => 'linked-package-three'
+                        ]
+                    ]
+                ],
+                [
+                    // Command arguments
+                    'package/one',
+                    'package/three'
+                ],
+                0, // Exit code
+                'process completed', // statue message
+                [
+                    // Stubs exist
+                    'linked-package-one',
+                    'linked-package-three'
+                ],
+                [
+                    // Stubs not exist
+                    'linked-package-two'
+                ],
+                [
+                    // Dont check for symlinks
+                ],
+                [
+                    //Dont check non symlinks
+                ]
+            ],
+            'link packages - with argument - skip errors' => [
+                [
+                    // Mock package configs
+                    // Subarray - Name, install path, files
+                    ['package/one', 'package-one', []],
+                    ['package/two', 'package-two', []]
+                ],
+                [
+                    // Plugin config
+                    LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                            'package/one' => 'linked-package-one',
+                            'package/two' => [
+                                'invalid-config'
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    // Command arguments
+                    'uninstalled/package',
+                    'package/one',
+                    'package/two'
+                ],
+                1, // exit code
+                'process completed with errors', // status message
+                [
+                    // Stub exist
+                    'linked-package-one'
+                ],
+                [
+                    // Dont check stubs not exist
+                ],
+                [
+                    // Dont check for symlinks
+                ],
+                [
+                    //Dont check non symlinks
                 ]
             ]
-        ]);
-
-        $exitCode = $this->runCommand([
-            'uninstalled/package',
-            'package/one',
-            'package/two'
-        ]);
-
-        // Assert command error
-        $this->assertSame(1, $exitCode);
-        $this->assertStringContainsStringIgnoringCase(
-            'process completed with errors',
-            $this->commandTester->getDisplay()
-        );
-
-        // Assert valid package linked
-        $this->assertFileStubExists('linked-package-one');
+        ];
     }
 }
