@@ -11,7 +11,7 @@ use JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageLocator;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 
 /**
- * Class LinkProviderTestWithDataProvider
+ * Class LinkProviderTest
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Commands
  */
@@ -82,7 +82,7 @@ class LinkCommandTest extends BaseCommandTest
 
         // Check exit code and display as necessary
         $this->assertSame($expectedExitCode, $exitCode);
-        if ($expectDisplayContains) {
+        if ($expectDisplayContains !== null) {
             $this->assertStringContainsStringIgnoringCase(
                 $expectDisplayContains,
                 $this->commandTester->getDisplay()
