@@ -30,7 +30,7 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
     public const CONFIG_KEY_LINKS_FILES = 'files';
     public const CONFIG_KEY_OPTIONS = 'options';
     public const CONFIG_KEY_OPTIONS_COPY = 'copy';
-    public const CONFIG_KEY_OPTIONS_DELETEORPHANS = 'delete-orphans';
+    public const CONFIG_KEY_OPTIONS_DELETE_ORPHANS = 'delete-orphans';
 
     /**
      * The root package that contains extra config data for link definitions
@@ -244,17 +244,17 @@ class LinkDefinitionFactory implements LinkDefinitionFactoryInterface
         }
 
         // If delete orphans option found
-        if (isset($configOptions[self::CONFIG_KEY_OPTIONS_DELETEORPHANS])) {
+        if (isset($configOptions[self::CONFIG_KEY_OPTIONS_DELETE_ORPHANS])) {
             // Validate type
-            if (!is_bool($configOptions[self::CONFIG_KEY_OPTIONS_DELETEORPHANS])) {
+            if (!is_bool($configOptions[self::CONFIG_KEY_OPTIONS_DELETE_ORPHANS])) {
                 throw InvalidConfigException::unexpectedType(
-                    $linkDefinition->getPackage()->getName().' - '.self::CONFIG_KEY_OPTIONS_DELETEORPHANS,
+                    $linkDefinition->getPackage()->getName().' - '.self::CONFIG_KEY_OPTIONS_DELETE_ORPHANS,
                     'bool',
-                    $configOptions[self::CONFIG_KEY_OPTIONS_DELETEORPHANS]
+                    $configOptions[self::CONFIG_KEY_OPTIONS_DELETE_ORPHANS]
                 );
             }
 
-            $linkDefinition->setDeleteOrphanDirs($configOptions[self::CONFIG_KEY_OPTIONS_DELETEORPHANS]);
+            $linkDefinition->setDeleteOrphanDirs($configOptions[self::CONFIG_KEY_OPTIONS_DELETE_ORPHANS]);
         }
 
         return $linkDefinition;
