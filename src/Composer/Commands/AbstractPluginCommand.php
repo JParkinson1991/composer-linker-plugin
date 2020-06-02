@@ -137,28 +137,20 @@ abstract class AbstractPluginCommand extends BaseCommand
         $packageNames = $input->getArgument('package-names');
 
         // If no package names provided, execute against the full repository
-        if (empty($packageNames)) {
-            return $this->executeRepository(
-                $linkExecutor,
+        if (!empty($packageNames)) {
+            return $this->executePackages(
+                $packageNames,
                 $repository,
+                $linkExecutor,
                 $output
             );
         }
 
-        // Command names provided, try load package and execute each of them
-        try {
-            $packages = [];
-            foreach ($packageNames as $packageName) {
-                $packages[] = $this->packageLocator->getFromRepository($packageName, $repository);
-            }
-
-            return $this->executePackages($packages, $linkExecutor, $output);
-        }
-        catch (InvalidArgumentException $e) {
-            $output->writeln('<error>Error</error> '.$e->getMessage());
-
-            return 1;
-        }
+        return $this->executeRepository(
+            $linkExecutor,
+            $repository,
+            $output
+        );
     }
 
     /**
@@ -204,7 +196,7 @@ abstract class AbstractPluginCommand extends BaseCommand
      *
      * Called when the commands are provided arguments
      *
-     * @param \Composer\Package\PackageInterface[] $packages
+     * @param string[] $packageNames
      *     The packages to process
      * @param \JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor $linkExecutor
      *     The link executor
@@ -213,19 +205,29 @@ abstract class AbstractPluginCommand extends BaseCommand
      *
      * @return int
      */
-    private function executePackages(array $packages, LinkExecutor $linkExecutor, OutputInterface $output): int
-    {
+    private function executePackages(
+        array $packageNames,
+        RepositoryInterface $repository,
+        LinkExecutor $linkExecutor,
+        OutputInterface $output
+    ): int {
         // Initialise error indication for final status output
         $hasError = false;
 
         // Loop each package passing to sub command to execute
         // Catch errors and output
-        foreach ($packages as $package) {
+        foreach ($packageNames as $packageName) {
             try {
+                $package = $this->packageLocator->getFromRepository($packageName, $repository);
                 $this->doExecutePackage($linkExecutor, $package);
             }
-            catch (LinkExecutorException $e) {
-                $output->writeln('<error>Error</error> '.$e->getExecutionException()->getMessage());
+            catch (\Exception $e) {
+                $output->writeln(sprintf(
+                    '<error>Error</error> %s',
+                    ($e instanceof LinkExecutorException)
+                        ? $e->getExecutionException()->getMessage()
+                        : $e->getMessage()
+                ));
                 $hasError = true;
             }
         }
@@ -264,6 +266,8 @@ abstract class AbstractPluginCommand extends BaseCommand
             new ComposerFilesystem(),
             $composer->getInstallationManager()
         );
+
+        $linkFileHandler->setRootPath(dirname($composer->getConfig()->get('vendor-dir')));
 
         // Configure file handler to log to console output
         $linkFileHandler->setLogger(new SimpleIoLogger(new ConsoleIO(
