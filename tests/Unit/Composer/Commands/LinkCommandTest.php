@@ -111,7 +111,7 @@ class LinkCommandTest extends TestCase
      * Test the command uses the expected name stub
      *
      * @return void
-     * 
+     *
      * @throws \ReflectionException
      */
     public function testUsesExpectedNameStub(): void
