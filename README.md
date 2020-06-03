@@ -28,6 +28,71 @@ Any linked package will still exist within the composer vendor directory as well
 $ composer require jparkinson1991/composer-linker-plugin
 ```
 
+## Usage
+
+### Usage as a Plugin
+
+This plugin will invoke automatically after a package is _installed_, _updated_ or _uninstalled_.
+To have that package handled by this plugin simply provide [configuration](#configuration) for it. Packages will
+be `linked` as per configuration on _install_ and _update_. Packages will be `unlinked` as per configuration on _uninstall_.
+
+All defined [configuration](#configuration) will be processed when this plugin is _installed_ and _uninstalled_. On
+_install_ all configuration will be `linked`. On _uninstall_ all configuration will be `unlinked`.
+
+### Usage via Commands
+
+Commands can be used manually trigger a `link`/`unlink`. Commands will only be able to process that which exists in [configuration](#configuration).
+
+#### Link Command
+
+Link all packages as defined in configuration.
+
+```
+$ composer composer-linker-plugin:link
+$ composer clp-link
+```
+
+Link a single package from configuration.<br/>
+_Package must be installed and configuration must exist for it_
+
+```
+$ composer composer-linker-plugin:link package/name
+$ composer clp-link package/name
+```
+
+Link a multiple packages from configuration.<br/>
+_Packages must be installed and configuration must exist for them_
+
+```
+$ composer composer-linker-plugin:link package/name second/package third/package ...
+$ composer clp-link package/name second/package third/package ...
+```
+
+#### Unlink Command
+
+Unlink all packages as defined in configuration.
+
+```
+$ composer composer-linker-plugin:unlink
+$ composer clp-unlink
+```
+
+Unlink a single package from configuration.<br/>
+_Package must be installed and configuration must exist for it_
+
+```
+$ composer composer-linker-plugin:unlink package/name
+$ composer clp-unlink package/name
+```
+
+Unlink a multiple packages from configuration.<br/>
+_Packages must be installed and configuration must exist for them_
+
+```
+$ composer composer-linker-plugin:unlink package/name second/package third/package ...
+$ composer clp-unlink package/name second/package third/package ...
+```
+
 ## Configuration
 
 All plugin configuration exists within the `extra` section of the project's `composer.json` file under the `linker-plugin` key.
