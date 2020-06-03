@@ -52,16 +52,14 @@ $ composer composer-linker-plugin:link
 $ composer clp-link
 ```
 
-Link a single package from configuration.<br/>
-_Package must be installed and configuration must exist for it_
+Link a single package from configuration. _Package must be installed and configuration must exist for it._
 
 ```
 $ composer composer-linker-plugin:link package/name
 $ composer clp-link package/name
 ```
 
-Link a multiple packages from configuration.<br/>
-_Packages must be installed and configuration must exist for them_
+Link a multiple packages from configuration. _Packages must be installed and configuration must exist for them._
 
 ```
 $ composer composer-linker-plugin:link package/name second/package third/package ...
@@ -77,16 +75,14 @@ $ composer composer-linker-plugin:unlink
 $ composer clp-unlink
 ```
 
-Unlink a single package from configuration.<br/>
-_Package must be installed and configuration must exist for it_
+Unlink a single package from configuration. _Package must be installed and configuration must exist for it._
 
 ```
 $ composer composer-linker-plugin:unlink package/name
 $ composer clp-unlink package/name
 ```
 
-Unlink a multiple packages from configuration.<br/>
-_Packages must be installed and configuration must exist for them_
+Unlink a multiple packages from configuration. _Packages must be installed and configuration must exist for them._
 
 ```
 $ composer composer-linker-plugin:unlink package/name second/package third/package ...
