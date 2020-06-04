@@ -4,8 +4,6 @@
  * LinkExecutorInterface.php
  */
 
-declare(strict_types=1);
-
 namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 use Composer\Package\PackageInterface;
