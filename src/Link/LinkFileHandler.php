@@ -4,14 +4,18 @@
  * LinkFileHandler.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Link;
 
 use Composer\Installer\InstallationManager;
 use Composer\Util\Filesystem as ComposerFileSystem;
 use Exception;
+use FilesystemIterator;
 use InvalidArgumentException;
 use JParkinson1991\ComposerLinkerPlugin\Log\LoggerAwareTrait;
 use Psr\Log\LoggerAwareInterface;
+use RuntimeException;
 use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
 
 /**
@@ -19,7 +23,7 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link
  */
-class LinkFileHandler implements LoggerAwareInterface
+class LinkFileHandler implements LinkFileHandlerInterface, LoggerAwareInterface
 {
     /**
      * Shared logger functionality
@@ -54,12 +58,14 @@ class LinkFileHandler implements LoggerAwareInterface
      */
     protected $symfonyFileSystem;
 
-
     /**
      * LinkFileHandler constructor.
      *
-     * @param \Symfony\Component\Filesystem\Filesystem $filesystem
+     * @param \Symfony\Component\Filesystem\Filesystem $symfonyFileSystem
+     * @param \Composer\Util\Filesystem $composerFileSystem
      * @param \Composer\Installer\InstallationManager $installationManager
+     *
+     * @throws \Exception
      */
     public function __construct(
         SymfonyFileSystem $symfonyFileSystem,
@@ -68,7 +74,7 @@ class LinkFileHandler implements LoggerAwareInterface
     ) {
         $rootPath = realpath(getcwd());
         if (!is_string($rootPath)) {
-            throw new Exception('Failed to determine root path from current working dir');
+            throw new RuntimeException('Failed to determine root path from current working dir');
         }
 
         $this->symfonyFileSystem = $symfonyFileSystem;
@@ -178,6 +184,8 @@ class LinkFileHandler implements LoggerAwareInterface
      * Links only the mapped files as configured by the link definition
      *
      * @param \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionInterface $linkDefinition
+     *
+     * @throws \Exception
      */
     protected function linkFiles(LinkDefinitionInterface $linkDefinition): void
     {
@@ -246,6 +254,8 @@ class LinkFileHandler implements LoggerAwareInterface
      * definition
      *
      * @param \JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionInterface $linkDefinition
+     *
+     * @throws \Exception
      */
     protected function unlinkFiles(LinkDefinitionInterface $linkDefinition): void
     {
@@ -293,7 +303,7 @@ class LinkFileHandler implements LoggerAwareInterface
                     $destinationFilePath = $this->getAbsolutePath($destination, $destRoot);
                     $destinationFileDirectory = dirname($destinationFilePath);
 
-                    if (!in_array($destinationFileDirectory, $searchPaths)) {
+                    if (!in_array($destinationFileDirectory, $searchPaths, true)) {
                         $searchPaths[] = $destinationFileDirectory;
                     }
                 }
@@ -321,7 +331,7 @@ class LinkFileHandler implements LoggerAwareInterface
                 if (is_dir($searchDir)) {
                     // Make sure the directory if empty, if not break the process
                     // breaking process stops parent recursion up to root path
-                    $searchDirIsEmpty = !(new \FilesystemIterator($searchDir))->valid();
+                    $searchDirIsEmpty = !(new FilesystemIterator($searchDir))->valid();
                     if ($searchDirIsEmpty === false) {
                         break;
                     }

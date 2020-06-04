@@ -6,9 +6,6 @@
 
 namespace JParkinson1991\ComposerLinkerPlugin\Composer\Package;
 
-use Composer\DependencyResolver\Operation\InstallOperation;
-use Composer\DependencyResolver\Operation\UninstallOperation;
-use Composer\DependencyResolver\Operation\UpdateOperation;
 use Composer\Installer\PackageEvent;
 use Composer\Package\PackageInterface;
 

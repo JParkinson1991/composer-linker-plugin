@@ -4,6 +4,8 @@
  * LinkDefinitionTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link;
 
 use Composer\Package\PackageInterface;
@@ -92,7 +94,6 @@ class LinkDefinitionTest extends TestCase
         $linkDefinition->setDeleteOrphanDirs(false);
         $this->assertFalse($linkDefinition->getDeleteOrphanDirs());
     }
-
 
     /**
      * Tests that specific files can be set against the link definition and

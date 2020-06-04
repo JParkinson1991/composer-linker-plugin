@@ -4,6 +4,8 @@
  * LinkFileHandlerTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link;
 
 use Composer\Installer\InstallationManager;
@@ -674,7 +676,6 @@ class LinkFileHandlerTest extends TestCase
                 }
             });
 
-
         // Run the unlink, populating the actual deleted dirs array allowing it
         // to be asserted against.
         $this->linkFileHandler->unlink($linkDefinition);
@@ -793,7 +794,6 @@ class LinkFileHandlerTest extends TestCase
             }
         }
 
-
         // Create storage array for orphan delete calls and exception calls
         $actualDeletePaths = [];
         $actualExceptionPaths = [];
@@ -820,7 +820,6 @@ class LinkFileHandlerTest extends TestCase
                 if (!in_array($removeMethodParam, $actualDeletePaths, true)) {
                     $actualDeletePaths[] = $removeMethodParam;
                 }
-
 
                 return true;
             });

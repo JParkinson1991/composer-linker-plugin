@@ -4,6 +4,8 @@
  * IoLogger.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Log;
 
 use Composer\IO\IOInterface;
@@ -36,7 +38,7 @@ class SimpleIoLogger extends AbstractLogger
     /**
      * @inheritDoc
      */
-    public function log($level, $message, array $context = [])
+    public function log($level, $message, array $context = []): void
     {
         $this->io->write($message);
     }

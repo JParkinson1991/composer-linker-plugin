@@ -4,6 +4,8 @@
  * LinkDefinitionFactoryTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Link;
 
 use Composer\Package\PackageInterface;
@@ -105,7 +107,6 @@ class LinkDefinitionFactoryTest extends TestCase
         $this->assertSame('dest/dir', $instance->getDestinationDir());
     }
 
-
     /**
      * Tests that the factory is able to instantiate a link definition object
      * from a simple string package config
@@ -124,7 +125,7 @@ class LinkDefinitionFactoryTest extends TestCase
                 ],
                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
                     LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false,
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                 ]
             ]
         ]);
@@ -147,7 +148,7 @@ class LinkDefinitionFactoryTest extends TestCase
                 ],
                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
                     LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => false
                 ]
             ]
         ]);
@@ -209,7 +210,7 @@ class LinkDefinitionFactoryTest extends TestCase
                 ],
                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
                     LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => false
                 ]
             ]
         ]);
@@ -241,13 +242,13 @@ class LinkDefinitionFactoryTest extends TestCase
                         LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => '/destination/dir',
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
                             LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => false,
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                         ]
                     ]
                 ],
                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
                     LinkDefinitionFactory::CONFIG_KEY_OPTIONS_COPY => true,
-                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => false
+                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => false
                 ]
             ]
         ]);
@@ -661,7 +662,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             ]
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => 1
                         ]
                     ]
                 ]
@@ -675,7 +676,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             ]
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1.23
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => 1.23
                         ]
                     ]
                 ]
@@ -689,7 +690,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             ]
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => "string"
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => "string"
                         ]
                     ]
                 ]
@@ -703,7 +704,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             ]
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => []
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => []
                         ]
                     ]
                 ]
@@ -717,7 +718,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             ]
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => new stdClass()
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => new stdClass()
                         ]
                     ]
                 ]
@@ -860,7 +861,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             'test/package' => [
                                 LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => 1
                                 ]
                             ]
                         ]
@@ -874,7 +875,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             'test/package' => [
                                 LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 1.23
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => 1.23
                                 ]
                             ]
                         ]
@@ -888,7 +889,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             'test/package' => [
                                 LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => 'string'
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => 'string'
                                 ]
                             ]
                         ]
@@ -902,7 +903,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             'test/package' => [
                                 LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => []
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => []
                                 ]
                             ]
                         ]
@@ -916,7 +917,7 @@ class LinkDefinitionFactoryTest extends TestCase
                             'test/package' => [
                                 LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'valid dir',
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => new stdClass()
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => new stdClass()
                                 ]
                             ]
                         ]

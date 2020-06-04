@@ -4,22 +4,19 @@
  * ComposerLinkPluginTest.php
  */
 
+declare(strict_types=1);
+
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin;
 
-use Composer\Composer;
-use Composer\Config;
 use Composer\DependencyResolver\Operation\InstallOperation;
 use Composer\DependencyResolver\Operation\UninstallOperation;
-use Composer\Installer\InstallationManager;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
-use Composer\Package\RootPackage;
 use JParkinson1991\ComposerLinkerPlugin\Composer\Plugin\ComposerLinkerPlugin;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
-use PHPUnit\Framework\TestCase;
+use JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\BaseComposerTestCase;
 use RuntimeException;
-use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * Class ComposerLinkPluginTest
@@ -33,19 +30,12 @@ use Symfony\Component\Filesystem\Filesystem;
  *
  * @package JParkinson1991\ComposerLinkerPlugin\Tests\Integration\Composer\Plugin
  */
-class ComposerLinkPluginTest extends TestCase
+class ComposerLinkerPluginTest extends BaseComposerTestCase
 {
     /**
      * The name of the test package that can be used in test cases of this class
      */
     public const TEST_PACKAGE_NAME = 'test/package';
-
-    /**
-     * Mocked composer object used for plugin activation
-     *
-     * @var \Composer\Composer|\PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $composer;
 
     /**
      * Mocked test package object with name TEST_PACKAGE_NAME
@@ -55,98 +45,25 @@ class ComposerLinkPluginTest extends TestCase
     protected $package;
 
     /**
-     * Holds what will be treat as the project root path during these tests
-     */
-    protected $projectRootPath;
-
-    /**
-     * Mock root package object, holds plugin config.
+     * Sets up the test case
      *
-     * Instantiated during setup, configured per test class
-     *
-     * @var \Composer\Package\RootPackage|\PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $rootPackage;
-
-    /**
-     * Prepares the environment before running a test case
+     * Initialise a default test package
      *
      * @return void
      */
     public function setUp(): void
     {
-        // Create and store a project root path
-        $this->projectRootPath = (new \Composer\Util\Filesystem())->normalizePath(
-            __DIR__.'../../../../../var/composer_plugin_test_root'
+        parent::setUp();
+
+        $this->package = $this->initialisePackage(
+            self::TEST_PACKAGE_NAME,
+            'test/package',
+            [
+                'README.md',
+                'src/Class.php',
+                'src/Services/Service.php'
+            ]
         );
-
-        // Left over project root path, delete it
-        if (file_exists($this->projectRootPath)) {
-            $this->tearDown();
-        }
-
-        // Create a mock composer config instance so when called to get the
-        // vendor it will return our mock project root. Not a class property
-        // as never needed to be configured against
-        $config = $this->createMock(Config::class);
-        $config
-            ->method('get')
-            ->with('vendor-dir')
-            ->willReturn($this->projectRootPath.'/vendor');
-
-        // Create a mock package, uses this throughout these test cases
-        // Class property so it can be reused per test case
-        $this->package = $this->createMock(PackageInterface::class);
-        $this->package
-            ->method('getName')
-            ->willReturn(self::TEST_PACKAGE_NAME);
-
-        // Create a mock installation manager that will return the a known
-        // installation path within the test project root. Not class property
-        // doesnt need to be used again
-        $installationManager = $this->createMock(InstallationManager::class);
-        $installationManager
-            ->method('getInstallPath')
-            ->with($this->package)
-            ->willReturn($this->projectRootPath.'/vendor/test/package');
-
-        // Some functionality outside of the control of this package must
-        // still be mocked. Class property to avoid per test case configuration.
-        // No plugin config done here, can be handle per test case using the
-        // configurePlugin() method
-        $this->rootPackage = $this->createMock(RootPackage::class);
-
-        // Create the composer object mock returning all of the mocks created
-        $this->composer = $this->createMock(Composer::class);
-        $this->composer
-            ->method('getConfig')
-            ->willReturn($config);
-        $this->composer
-            ->method('getInstallationManager')
-            ->willReturn($installationManager);
-        $this->composer
-            ->method('getPackage')
-            ->willReturn($this->rootPackage);
-
-        // Create all the required files
-        $fileSystem = new Filesystem();
-        $fileSystem->mkdir($this->projectRootPath);
-        $fileSystem->mkdir($this->projectRootPath.'/vendor/test/package/src/Services');
-        $fileSystem->touch([
-            $this->projectRootPath.'/vendor/test/package/README.md',
-            $this->projectRootPath.'/vendor/test/package/src/Class.php',
-            $this->projectRootPath.'/vendor/test/package/src/Services/Service.php'
-        ]);
-    }
-
-    /**
-     * Tears down the environment after running a test case
-     *
-     * @return void
-     */
-    public function tearDown(): void
-    {
-        (new FileSystem())->remove($this->projectRootPath);
     }
 
     /**
@@ -162,6 +79,8 @@ class ComposerLinkPluginTest extends TestCase
      *     Expected files to not exists
      *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItLinksAPackage(
         array $pluginConfig,
@@ -169,7 +88,7 @@ class ComposerLinkPluginTest extends TestCase
         array $expectFileNotExists
     ): void {
         // Configure and run the plugin using the provided config
-        $this->configurePlugin($pluginConfig);
+        $this->setPluginConfig($pluginConfig);
         $this->runPlugin('link');
 
         // Determine whether symlink was used in the plugin configs
@@ -197,8 +116,13 @@ class ComposerLinkPluginTest extends TestCase
 
             // Assert linked dir exists
             // Assert is as $expectSymlink
-            $this->assertFileExists($this->toAbsolutePath($destinationDir));
-            $this->assertSame($usesSymlink, is_link($this->toAbsolutePath($destinationDir)));
+            $this->assertFileStubExists($destinationDir);
+            if ($usesSymlink) {
+                $this->assertFileStubIsSymlink($destinationDir);
+            }
+            else {
+                $this->assertFileStubIsNotSymlink($destinationDir);
+            }
 
             // Dont check symlink status against files
             $checkFileLinks = false;
@@ -212,16 +136,21 @@ class ComposerLinkPluginTest extends TestCase
 
         // Ensure every expected file exists
         foreach ($expectFileExists as $expectedFileStub) {
-            $this->assertFileExists($this->toAbsolutePath($expectedFileStub));
+            $this->assertFileStubExists($expectedFileStub);
 
             if ($checkFileLinks === true) {
-                $this->assertSame($usesSymlink, is_link($this->toAbsolutePath($expectedFileStub)));
+                if ($usesSymlink) {
+                    $this->assertFileStubIsSymlink($expectedFileStub);
+                }
+                else {
+                    $this->assertFileStubIsNotSymlink($expectedFileStub);
+                }
             }
         }
 
         // Ensure every expected file does not exist
         foreach ($expectFileNotExists as $notExpectedFileStub) {
-            $this->assertFileDoesNotExist($this->toAbsolutePath($notExpectedFileStub));
+            $this->assertFileStubDoesNotExist($notExpectedFileStub);
         }
     }
 
@@ -248,6 +177,8 @@ class ComposerLinkPluginTest extends TestCase
      *     absolute by test case.
      *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
      */
     public function testItUnlinksAPackage(
         array $pluginConfig,
@@ -256,37 +187,160 @@ class ComposerLinkPluginTest extends TestCase
         array $expectFileExists
     ): void {
         // Configure and run the plugin creating the link file structure
-        $this->configurePlugin($pluginConfig);
+        $this->setPluginConfig($pluginConfig);
         $this->runPlugin('link');
 
         // Add extra files into link dir as needed
         // Useful when testing orphan cleanup
-        if (!empty($extraFiles)) {
-            $fileSystem = new Filesystem();
-
-            foreach ($extraFiles as $extraFileStub) {
-                $extraFilePath = $this->toAbsolutePath($extraFileStub);
-
-                if ($fileSystem->exists(dirname($extraFilePath)) === false) {
-                    $fileSystem->mkdir(dirname($extraFilePath));
-                }
-
-                $fileSystem->touch($extraFilePath);
-            }
-        }
+        $this->createFiles($extraFiles);
 
         // Unlink the plugin
         $this->runPlugin('unlink');
 
         // Check all of the expected non existent files do not exist
         foreach ($expectFileNotExists as $expectFileNotExistStub) {
-            $this->assertFileDoesNotExist($this->toAbsolutePath($expectFileNotExistStub));
+            $this->assertFileStubDoesNotExist($expectFileNotExistStub);
         }
 
         // Check all of the expected existing files still exists.
         foreach ($expectFileExists as $expectedFileExistsStub) {
-            $this->assertFileExists($this->toAbsolutePath($expectedFileExistsStub));
+            $this->assertFileStubExists($expectedFileExistsStub);
         }
+    }
+
+    /**
+     * Tests that the plugin initialises itself after it is installed by
+     * running link against any defined config that existed prior to
+     * installation.
+     *
+     * For example, a user writing plugin config before requiring it in their
+     * project.
+     *
+     * @return void
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testItInitialisesItselfAfterInstall(): void
+    {
+        $this->initialisePackage(
+            'another/test',
+            'another-test',
+            [
+                'src/file1.txt',
+                'src/file2.txt'
+            ]
+        );
+
+        // Configure the plugin
+        // Do simple link for standard test package
+        // Do specific file link for custom test package created in this test case
+        $this->setPluginConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    self::TEST_PACKAGE_NAME => 'linked-test-package',
+                    'another/test' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-another-test',
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_FILES => [
+                            'src/file1.txt' => 'linked-file1.txt'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+
+        // Create a mock package for the plugin
+        $pluginPackage = $this->createMock(PackageInterface::class);
+        $pluginPackage
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Run the init method with the plugin package
+        $this->runPlugin('init', $pluginPackage);
+
+        // Expect all standard $this->package files to exist in linked dir
+        $this->assertFileStubExists('linked-test-package');
+        $this->assertFileStubExists('linked-test-package/README.md');
+        $this->assertFileStubExists('linked-test-package/src');
+        $this->assertFileStubExists('linked-test-package/src/Class.php');
+        $this->assertFileStubExists('linked-test-package/src/Services');
+        $this->assertFileStubExists('linked-test-package/src/Services/Service.php');
+
+        // Expect only the one file existed with new name for $anotherTestPackage
+        $this->assertFileStubExists('linked-another-test');
+        $this->assertFileStubExists('linked-another-test/linked-file1.txt');
+
+        // Ensure standard files not carried over for $anotherTestPackage
+        $this->assertFileStubDoesNotExist('linked-another-test/src');
+        $this->assertFileStubDoesNotExist('linked-another-test/src/file1.txt');
+        $this->assertFileStubDoesNotExist('linked-another-test/src/file2.txt');
+    }
+
+    /**
+     * Tests that when this plugin is uninstalled it cleans up all previously
+     * linked package files.
+     *
+     * @return void
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     */
+    public function testItCleansUpAfterPluginUninstall(): void
+    {
+        $this->initialisePackage(
+            'package/one',
+            'package-one',
+            [
+                'file.txt'
+            ]
+        );
+
+        $this->initialisePackage(
+            'package/two',
+            'package-two',
+            [
+                'file.txt'
+            ]
+        );
+
+        // Configure the plugin
+        $this->setPluginConfig([
+            LinkDefinitionFactory::CONFIG_KEY_ROOT => [
+                LinkDefinitionFactory::CONFIG_KEY_LINKS => [
+                    'package/one' => 'linked-package-one',
+                    'package/two' => [
+                        LinkDefinitionFactory::CONFIG_KEY_LINKS_DIR => 'linked-package-two'
+                    ]
+                ]
+            ]
+        ]);
+
+        // Mimick an already existing linked context
+        $this->createFiles([
+            'linked-package-one/file.txt',
+            'linked-package-two/file.txt'
+        ]);
+
+        // Assert everything exists as expected
+        $this->assertFileStubExists('package-one', $this->vendorDirectory);
+        $this->assertFileStubExists('package-one/file.txt', $this->vendorDirectory);
+        $this->assertFileStubExists('package-two', $this->vendorDirectory);
+        $this->assertFileStubExists('package-two/file.txt', $this->vendorDirectory);
+        $this->assertFileStubExists('linked-package-one');
+        $this->assertFileStubExists('linked-package-one/file.txt');
+        $this->assertFileStubExists('linked-package-two');
+        $this->assertFileStubExists('linked-package-two/file.txt');
+
+        // Create a mock package for the plugin
+        $pluginPackage = $this->createMock(PackageInterface::class);
+        $pluginPackage
+            ->method('getName')
+            ->willReturn('jparkinson1991/composer-linker-plugin');
+
+        // Run the cleanup action on the plugin
+        $this->runPlugin('cleanup', $pluginPackage);
+
+        // Ensure non of the linked files exist anymore
+        $this->assertFileStubDoesNotExist('linked-package-one');
+        $this->assertFileStubDoesNotExist('linked-package-one/file.txt');
+        $this->assertFileStubDoesNotExist('linked-package-two');
+        $this->assertFileStubDoesNotExist('linked-package-two/file.txt');
     }
 
     /**
@@ -487,7 +541,7 @@ class ComposerLinkPluginTest extends TestCase
                             self::TEST_PACKAGE_NAME => 'linked-package'
                         ],
                         LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                            LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                         ]
                     ]
                 ],
@@ -539,7 +593,7 @@ class ComposerLinkPluginTest extends TestCase
                                     'src/Class.php'
                                 ],
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                                 ]
                             ]
                         ]
@@ -576,7 +630,7 @@ class ComposerLinkPluginTest extends TestCase
                                     ]
                                 ],
                                 LinkDefinitionFactory::CONFIG_KEY_OPTIONS => [
-                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETEORPHANS => true
+                                    LinkDefinitionFactory::CONFIG_KEY_OPTIONS_DELETE_ORPHANS => true
                                 ]
                             ]
                         ]
@@ -611,21 +665,6 @@ class ComposerLinkPluginTest extends TestCase
     }
 
     /**
-     * Configure the plugin via the 'extra' section of composer.json
-     *
-     * @param array $config
-     *     The config to set for the 'extra' array
-     *
-     * @return void
-     */
-    protected function configurePlugin(array $config): void
-    {
-        $this->rootPackage
-            ->method('getExtra')
-            ->willReturn($config);
-    }
-
-    /**
      * Runs the given action on the plugin
      *
      * This method handles mock creation/configuration of events that are
@@ -634,15 +673,26 @@ class ComposerLinkPluginTest extends TestCase
      * @param string $action
      *     Either link, or unlink
      *
+     * @param \Composer\Package\PackageInterface|null $package
+     *     The package to run against the plugin
+     *     If not provided, the default $this->package will be used
+     *
      * @return void
+     *
+     * @throws \JParkinson1991\ComposerLinkerPlugin\Composer\Package\PackageExtractionUnhandledEventOperationException
+     * @throws \Exception
      */
-    protected function runPlugin(string $action): void
+    protected function runPlugin(string $action, PackageInterface $package = null): void
     {
+        if ($package === null) {
+            $package = $this->package;
+        }
+
         // Create the plugin, using class property composer configured and
         // ready to use test project package etc
         $composerLinkerPlugin = new ComposerLinkerPlugin();
         $composerLinkerPlugin->activate(
-            $this->composer,
+            $this->getComposer(),
             $this->createMock(IOInterface::class)
         );
 
@@ -655,11 +705,17 @@ class ComposerLinkPluginTest extends TestCase
         );
         $operation
             ->method('getPackage')
-            ->willReturn($this->package);
+            ->willReturn($package);
 
         // Create the package event, have it return the package containing
-        // operation
+        // operation as well as the mocked composer etc
         $event = $this->createMock(PackageEvent::class);
+        $event
+            ->method('getIO')
+            ->willReturn($this->createMock(IOInterface::class));
+        $event
+            ->method('getComposer')
+            ->willReturn($this->getComposer());
         $event
             ->method('getOperation')
             ->willReturn($operation);
@@ -671,22 +727,14 @@ class ComposerLinkPluginTest extends TestCase
             case 'unlink':
                 $composerLinkerPlugin->unlinkPackageFromEvent($event);
                 break;
+            case 'init':
+                $composerLinkerPlugin->initPlugin($event);
+                break;
+            case 'cleanup':
+                $composerLinkerPlugin->cleanUpPlugin($event);
+                break;
             default:
                 throw new RuntimeException('what chu talkin bout willis');
         }
-    }
-
-    /**
-     * Returns an absolute path resolved from the test project root
-     *
-     * @param string $stub
-     *     The path stub
-     *
-     * @return string
-     *     The absolute path
-     */
-    protected function toAbsolutePath(string $stub): string
-    {
-        return $this->projectRootPath.'/'.ltrim($stub, '/');
     }
 }
