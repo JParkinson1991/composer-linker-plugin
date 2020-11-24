@@ -42,7 +42,12 @@ class PackageExtractor
             return $operation->getTargetPackage();
         }
 
-        // throw extraction exceptions for unhandled operations
+        /**
+         * throw extraction exceptions for unhandled operations
+         *
+         * @psalm-suppress DocblockTypeContradiction
+         * @psalm-suppress RedundantConditionGivenDocblockType
+         */
         throw new PackageExtractionUnhandledEventOperationException(sprintf(
             'Failed to extract package from event. Triggered for operation: %s. Expected operation: %s',
             ($operation !== null)
