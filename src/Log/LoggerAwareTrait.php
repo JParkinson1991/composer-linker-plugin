@@ -138,6 +138,8 @@ trait LoggerAwareTrait
     /**
      * Logs with an arbitrary level if a logger is available.
      *
+     * @psalm-suppress RedundantConditionGivenDocblockType
+     *
      * @param mixed  $level
      * @param string $message
      * @param array  $context
