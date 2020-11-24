@@ -127,6 +127,40 @@ class ComposerLinkerPluginTest extends TestCase
     }
 
     /**
+     * Empty deactivation test for coverage purposes
+     *
+     * To be updated if ever deactivation method used
+     *
+     * @return void
+     */
+    public function testDeactivation(): void
+    {
+        $this->plugin->deactivate(
+            $this->createMock(Composer::class),
+            $this->createMock(IOInterface::class)
+        );
+
+        $this->assertTrue(true);
+    }
+
+    /**
+     * Empty uninstallation test for coverage purposes
+     *
+     * To be updated if ever deactivation method used
+     *
+     * @return void
+     */
+    public function testUninstallation(): void
+    {
+        $this->plugin->uninstall(
+            $this->createMock(Composer::class),
+            $this->createMock(IOInterface::class)
+        );
+
+        $this->assertTrue(true);
+    }
+
+    /**
      * Tests that the plugin is subscribed to the expected events
      *
      * @return void
