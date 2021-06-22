@@ -26,6 +26,15 @@ jobs:
                     fail-fast: true
             -   name: Create Directory (./var/build)
                 run: mkdir -p ./var/build
+            -   name: Get Composer Cache Directory
+                id: composer-cache
+                run: echo "::set-output name=dir::$(composer config cache-dir)"
+            -   name: Cache Composer
+                uses: actions/cache@v2
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: ${{ runner.os }}-build-composer-${{ hashFiles('composer.lock'}}
+                    restore_keys: ${{ runner.os }}-build-composer-
             -   name: Composer Install
                 run: composer install
             -   name: Static Analysis (Psalm)
