@@ -33,7 +33,7 @@ jobs:
                 uses: actions/cache@v2
                 with:
                     path: ${{ steps.composer-cache.outputs.dir }}
-                    key: ${{ runner.os }}-build-composer-${{ hashFiles('composer.lock'}}
+                    key: ${{ runner.os }}-build-composer-${{ hashFiles('composer.lock') }}
                     restore_keys: ${{ runner.os }}-build-composer-
             -   name: Composer Install
                 run: composer install
