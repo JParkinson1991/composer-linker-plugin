@@ -1,7 +1,7 @@
 
 # Composer Linker Plugin
 
-![Packagist Version](https://img.shields.io/packagist/v/jparkinson1991/composer-linker-plugin?label=version) ![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/jparkinson1991/composer-linker-plugin) [![Build Status](https://travis-ci.org/JParkinson1991/composer-linker-plugin.svg?branch=master)](https://travis-ci.org/JParkinson1991/composer-linker-plugin) [![Coverage Status](https://coveralls.io/repos/github/JParkinson1991/composer-linker-plugin/badge.svg)](https://coveralls.io/github/JParkinson1991/composer-linker-plugin) ![Packagist License](https://img.shields.io/packagist/l/jparkinson1991/composer-linker-plugin)
+![Packagist Version](https://img.shields.io/packagist/v/jparkinson1991/composer-linker-plugin?label=version) ![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/jparkinson1991/composer-linker-plugin) [![Build & Test](https://github.com/JParkinson1991/composer-linker-plugin/actions/workflows/test.yml/badge.svg)](https://github.com/JParkinson1991/composer-linker-plugin/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/JParkinson1991/composer-linker-plugin/badge.svg)](https://coveralls.io/github/JParkinson1991/composer-linker-plugin) ![Packagist License](https://img.shields.io/packagist/l/jparkinson1991/composer-linker-plugin)
 
 This plugin enables the movement of package files outside of the standard composer vendor directory via symlink or copying.
 

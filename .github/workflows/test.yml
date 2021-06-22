@@ -1,0 +1,51 @@
+name: Build & Test
+on:
+    -   push
+    -   pull_request
+jobs:
+    build:
+        name: Build (PHP ${{ matrix.php-version }})
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                php-version:
+                    - 7.3
+                    - 7.4
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v2
+            -   name: Setup PHP (${{ matrix.php-version }} - Composer - Xdebug)
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php-version }}
+                    extensions: uopz, xdebug
+                    ini-values: uopz.exit=1
+                    tools: composer:v1
+                    coverage: xdebug
+                env:
+                    fail-fast: true
+            -   name: Create Directory (./var/build)
+                run: mkdir -p ./var/build
+            -   name: Get Composer Cache Directory
+                id: composer-cache
+                run: echo "::set-output name=dir::$(composer config cache-dir)"
+            -   name: Cache Composer
+                uses: actions/cache@v2
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: ${{ runner.os }}-build-composer-${{ hashFiles('composer.lock') }}
+                    restore-keys: ${{ runner.os }}-build-composer-
+            -   name: Composer Install
+                run: composer install
+            -   name: Static Analysis (Psalm)
+                run: ./vendor/bin/psalm
+            -   name: Run PHPUnit
+                run: ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
+            -   name: Code Coverage Check
+                run: ./vendor/bin/coverage-check ./var/build/coverage.xml 100
+            -   name: Coveralls Coverage Upload
+                env:
+                    COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                run: ./vendor/bin/php-coveralls -x ./var/build/coverage.xml -o ./var/build/coveralls-upload.json -v
+            -   name: Validate Code Style
+                run: ./vendor/bin/phpcs -s
