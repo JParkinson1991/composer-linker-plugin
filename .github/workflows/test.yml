@@ -4,23 +4,26 @@ on:
     -   pull_request
 jobs:
     build:
-        name: Build (PHP ${{ matrix.php-version }})
+        name: Build (PHP ${{ matrix.php-version }} - Composer ${{ matrix.composer-version}})
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 php-version:
                     - 7.3
                     - 7.4
+                composer-version:
+                    - v1
+                    - v2
         steps:
             -   name: Checkout
                 uses: actions/checkout@v2
-            -   name: Setup PHP (${{ matrix.php-version }} - Composer - Xdebug)
+            -   name: Setup PHP (${{ matrix.php-version }} - Composer ${{ matrix.composer-version}} - Xdebug)
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: ${{ matrix.php-version }}
                     extensions: uopz, xdebug
                     ini-values: uopz.exit=1
-                    tools: composer:v1
+                    tools: composer:${{ matrix.composer-version}}
                     coverage: xdebug
                 env:
                     fail-fast: true
