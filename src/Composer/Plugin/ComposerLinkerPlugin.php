@@ -38,7 +38,6 @@ use Symfony\Component\Filesystem\Filesystem as SymfonyFileSystem;
  */
 class ComposerLinkerPlugin implements PluginInterface, Capable, EventSubscriberInterface
 {
-
     /**
      * The local link executor
      *
