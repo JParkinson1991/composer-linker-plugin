@@ -17,5 +17,4 @@ use Exception;
  */
 class PackageExtractionUnhandledEventOperationException extends Exception
 {
-
 }
