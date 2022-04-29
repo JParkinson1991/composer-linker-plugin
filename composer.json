@@ -51,9 +51,6 @@
         "class": "JParkinson1991\\ComposerLinkerPlugin\\Composer\\Plugin\\ComposerLinkerPlugin"
     },
     "config": {
-        "platform": {
-            "php": "7.3"
-        },
         "sort-packages": true,
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
