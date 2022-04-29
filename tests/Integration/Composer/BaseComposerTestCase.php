@@ -13,6 +13,7 @@ use Composer\Config;
 use Composer\Installer\InstallationManager;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
+use Composer\Repository\InstalledRepositoryInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Repository\RepositoryManager;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -144,7 +145,7 @@ class BaseComposerTestCase extends TestCase
             });
 
         // Prepare a local repository
-        $localRepository = $this->createMock(RepositoryInterface::class);
+        $localRepository = $this->createMock(InstalledRepositoryInterface::class);
         $localRepository
             ->method('getPackages')
             ->willReturnCallback(function () {

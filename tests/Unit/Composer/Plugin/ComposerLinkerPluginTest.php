@@ -20,6 +20,7 @@ use Composer\Package\PackageInterface;
 use Composer\Package\RootPackageInterface;
 use Composer\Plugin\Capability\CommandProvider;
 use Composer\Plugin\Capable;
+use Composer\Repository\InstalledRepositoryInterface;
 use Composer\Repository\RepositoryInterface;
 use Composer\Repository\RepositoryManager;
 use Exception;
@@ -480,7 +481,7 @@ class ComposerLinkerPluginTest extends TestCase
     {
         // Configure a mock repository and it's parent that can be accessed
         // by the mock event
-        $repository = $this->createMock(RepositoryInterface::class);
+        $repository = $this->createMock(InstalledRepositoryInterface::class);
 
         $repositoryManager = $this->createMock(RepositoryManager::class);
         $repositoryManager
@@ -540,7 +541,7 @@ class ComposerLinkerPluginTest extends TestCase
         $repositoryManager = $this->createMock(RepositoryManager::class);
         $repositoryManager
             ->method('getLocalRepository')
-            ->willReturn($this->createMock(RepositoryInterface::class));
+            ->willReturn($this->createMock(InstalledRepositoryInterface::class));
 
         $composer = $this->createMock(Composer::class);
         $composer
@@ -618,7 +619,7 @@ class ComposerLinkerPluginTest extends TestCase
     {
         // Configure a mock repository and it's parent that can be accessed
         // by the mock event
-        $repository = $this->createMock(RepositoryInterface::class);
+        $repository = $this->createMock(InstalledRepositoryInterface::class);
 
         $repositoryManager = $this->createMock(RepositoryManager::class);
         $repositoryManager
@@ -675,7 +676,7 @@ class ComposerLinkerPluginTest extends TestCase
         $repositoryManager = $this->createMock(RepositoryManager::class);
         $repositoryManager
             ->method('getLocalRepository')
-            ->willReturn($this->createMock(RepositoryInterface::class));
+            ->willReturn($this->createMock(InstalledRepositoryInterface::class));
 
         $composer = $this->createMock(Composer::class);
         $composer

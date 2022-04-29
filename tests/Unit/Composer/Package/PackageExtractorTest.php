@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace JParkinson1991\ComposerLinkerPlugin\Tests\Unit\Composer\Package;
 
 use Composer\DependencyResolver\Operation\InstallOperation;
+use Composer\DependencyResolver\Operation\OperationInterface;
 use Composer\DependencyResolver\Operation\UninstallOperation;
 use Composer\DependencyResolver\Operation\UpdateOperation;
 use Composer\Installer\PackageEvent;
@@ -115,11 +116,28 @@ class PackageExtractorTest extends TestCase
      */
     public function testItThrowsExceptionOnUnhandledPackageEventOperation()
     {
+        $operation = new class implements OperationInterface {
+            public function getOperationType()
+            {
+                return 'unhanled';
+            }
+
+            public function show(bool $lock)
+            {
+                return 'unhandled';
+            }
+
+            public function __toString()
+            {
+                return 'unhandled';
+            }
+        };
+
         // Create mock that returns unknown operation
         $event = $this->createMock(PackageEvent::class);
         $event
             ->method('getOperation')
-            ->willReturn(new \stdClass());
+            ->willReturn($operation);
 
         $this->expectException(PackageExtractionUnhandledEventOperationException::class);
         $this->packageExtractor->extractFromEvent($event);
