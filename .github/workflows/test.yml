@@ -9,10 +9,10 @@ jobs:
         strategy:
             matrix:
                 php-version:
-                    - 7.3
-                    - 7.4
-                    - 8.0
-                    - 8.1
+                    - '7.3'
+                    - '7.4'
+                    - '8.0'
+                    - '8.1'
                 composer-version:
                     - v1
                     - v2
