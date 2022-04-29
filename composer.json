@@ -45,7 +45,7 @@
         "sniff": "phpcs -s",
         "sniff:fix": "phpcbf",
         "test": "phpunit --colors=always --coverage-html var/coverage",
-        "view-coverage": "open ./var/coverage/index.html"
+        "test:coverage": "open ./var/coverage/index.html"
     },
     "extra": {
         "class": "JParkinson1991\\ComposerLinkerPlugin\\Composer\\Plugin\\ComposerLinkerPlugin"
