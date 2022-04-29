@@ -22,6 +22,7 @@ use JParkinson1991\ComposerLinkerPlugin\Link\LinkDefinitionFactory;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkExecutor;
 use JParkinson1991\ComposerLinkerPlugin\Link\LinkFileHandler;
 use JParkinson1991\ComposerLinkerPlugin\Log\SimpleIoLogger;
+use RuntimeException;
 use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -125,8 +126,10 @@ abstract class AbstractPluginCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Get compose, ensure it could be loaded
-        $composer = $this->getComposer(true);
-        if ($composer === null) {
+        try {
+            $composer = $this->requireComposer();
+        }
+        catch (RuntimeException $e) {
             $output->writeln('<error>Error</error> Failed to load composer');
 
             return 1;
