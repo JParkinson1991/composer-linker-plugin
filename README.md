@@ -20,8 +20,14 @@ Any linked package will still exist within the composer vendor directory as well
 ### Requirements
 
  - A composer based PHP project.
- - Composer `^2.3.5`
+ - Composer `^2`
  - PHP `^7.3 || ^8.0`
+
+#### Composer 2.3.0 deprecations
+
+This plugin knowingly consumes deprecated functionality within composer core to ensure its compatibility with all
+current versions of composer 2.x. Update to the latest version of composer to ensure that when this deprecated code
+is removed from the plugin your installation will not be effected.
 
 ### Installing
 
