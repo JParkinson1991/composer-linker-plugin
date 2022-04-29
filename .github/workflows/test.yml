@@ -11,6 +11,8 @@ jobs:
                 php-version:
                     - 7.3
                     - 7.4
+                    - 8.0
+                    - 8.1
                 composer-version:
                     - v1
                     - v2
@@ -38,10 +40,14 @@ jobs:
                     path: ${{ steps.composer-cache.outputs.dir }}
                     key: ${{ runner.os }}-build-composer-${{ hashFiles('composer.json') }}
                     restore-keys: ${{ runner.os }}-build-composer-
-            -   name: Composer Install
-                run: composer install
+            -   name: Composer Install (unlocked)
+                run: |
+                    rm -f ./composer.lock
+                    composer install
+            -   name: PHP Version Compatibility
+                run: ./vendor/bin/phpcs -s --standard=PHPCompatibility --runtime-set testVersion ${{ matrix.php-version }} ./src ./tests
             -   name: Static Analysis (Psalm)
-                run: ./vendor/bin/psalm
+                run: ./vendor/bin/psalm --php-version=${{ matrix.php-version }}
             -   name: Run PHPUnit
                 run: ./vendor/bin/phpunit --coverage-clover ./var/build/coverage.xml
             -   name: Code Coverage Check
