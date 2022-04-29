@@ -126,7 +126,7 @@ abstract class AbstractPluginCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Get compose, ensure it could be loaded
-        $composer = $this->tryComposer();
+        $composer = $this->getComposer(false);
         if ($composer === null) {
             $output->writeln('<error>Error</error> Failed to load composer');
 
