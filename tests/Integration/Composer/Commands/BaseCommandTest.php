@@ -86,9 +86,34 @@ abstract class BaseCommandTest extends BaseComposerTestCase
     }
 
     /**
+     * Tests that the command fails to execute when no composer instance is available to the command during execution
+     *
+     * @return void
+     */
+    public function testItErrorsOnComposerLoadFailure()
+    {
+        $application = $this->getMockBuilder(Application::class)
+            ->onlyMethods(['getComposer'])
+            ->getMock();
+
+        $application
+            ->method('getComposer')
+            ->willReturn(null);
+
+        $command = $this->getCommandInstance();
+        $application->add($command);
+        $command = $application->find($command->getName());
+
+        $commandTester = new CommandTester($command);
+        $exitCode = $commandTester->execute([]);
+
+        $this->assertSame(1, $exitCode);
+    }
+
+    /**
      * Tests that it errors when package not installed.
      *
-     * Dont initialise any packages, just run the command, composer will act
+     * Don't initialise any packages, just run the command, composer will act
      * as if nothing is installed and this command should error
      *
      * The follow test should be command execution agnostic
