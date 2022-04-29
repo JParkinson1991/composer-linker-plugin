@@ -20,6 +20,7 @@ Any linked package will still exist within the composer vendor directory as well
 ### Requirements
 
  - A composer based PHP project.
+ - Composer `^2.3.5`
  - PHP `^7.3 || ^8.0`
 
 ### Installing

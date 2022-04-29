@@ -109,7 +109,10 @@ class ComposerLinkerPlugin implements PluginInterface, Capable, EventSubscriberI
     public static function getSubscribedEvents(): array
     {
         return [
-            PackageEvents::POST_PACKAGE_INSTALL => ['initPlugin', 'linkPackageFromEvent'],
+            PackageEvents::POST_PACKAGE_INSTALL => [
+                ['initPlugin'],
+                ['linkPackageFromEvent']
+            ],
             PackageEvents::POST_PACKAGE_UPDATE => 'linkPackageFromEvent',
             PackageEvents::PRE_PACKAGE_UNINSTALL => 'cleanUpPlugin',
             PackageEvents::POST_PACKAGE_UNINSTALL => 'unlinkPackageFromEvent'
