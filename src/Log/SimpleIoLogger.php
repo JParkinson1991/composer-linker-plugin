@@ -40,6 +40,6 @@ class SimpleIoLogger extends AbstractLogger
      */
     public function log($level, $message, array $context = []): void
     {
-        $this->io->write($message);
+        $this->io->write((string) $message);
     }
 }
