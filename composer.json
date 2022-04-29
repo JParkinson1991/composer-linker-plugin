@@ -12,13 +12,13 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "php": "^7.3",
+        "php": "^7.3 || ^8.0 ",
         "composer-plugin-api": "^1.1 || ^2.0",
         "symfony/filesystem": ">=3.0"
     },
     "require-dev": {
         "ext-uopz": "*",
-        "codedungeon/phpunit-result-printer": "^0.27.0",
+        "codedungeon/phpunit-result-printer": "^0.32.0",
         "composer/composer": "^1.10.26 || ^2.3.5",
         "composer/package-versions-deprecated": "^1.11.99.3",
         "jparkinson1991/phpcodesniffer-standards": "^1.3",
