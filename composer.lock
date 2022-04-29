@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8612e84e013abff3a09ad18660397a83",
+    "content-hash": "94bd8025ceb731e8f3e52d792982fd1b",
     "packages": [
         {
             "name": "symfony/filesystem",
@@ -633,6 +633,10 @@
                 "result-printer",
                 "testing"
             ],
+            "support": {
+                "issues": "https://github.com/mikeerickson/phpunit-pretty-result-printer/issues",
+                "source": "https://github.com/mikeerickson/phpunit-pretty-result-printer/tree/0.32.0"
+            },
             "funding": [
                 {
                     "url": "https://github.com/feross",
@@ -2494,6 +2498,7 @@
             "suggest": {
                 "roave/security-advisories": "dev-master || Helps prevent installing dependencies with known security issues."
             },
+            "default-branch": true,
             "type": "phpcodesniffer-standard",
             "extra": {
                 "branch-alias": {
@@ -2528,6 +2533,10 @@
                 "phpcs",
                 "standards"
             ],
+            "support": {
+                "issues": "https://github.com/PHPCompatibility/PHPCompatibility/issues",
+                "source": "https://github.com/PHPCompatibility/PHPCompatibility"
+            },
             "time": "2022-04-14T19:54:29+00:00"
         },
         {
@@ -2591,6 +2600,11 @@
                 "tokens",
                 "utility"
             ],
+            "support": {
+                "docs": "https://phpcsutils.com/",
+                "issues": "https://github.com/PHPCSStandards/PHPCSUtils/issues",
+                "source": "https://github.com/PHPCSStandards/PHPCSUtils"
+            },
             "time": "2020-06-28T21:57:33+00:00"
         },
         {
@@ -6554,7 +6568,7 @@
     "prefer-lowest": false,
     "platform": {
         "php": "^7.3 || ^8.0 ",
-        "composer-plugin-api": "^1.1 || ^2.0"
+        "composer-plugin-api": "^2.0"
     },
     "platform-dev": {
         "ext-uopz": "*"
